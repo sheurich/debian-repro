@@ -1,0 +1,313 @@
+  # .github/workflows/reproducible-debian-build.yml
+  # Build Debian rootfs with identical SHA256 to official Docker Hub images
+  name: Reproducible Debian Build
+
+  on:
+    workflow_dispatch:
+      inputs:
+        suites:
+          description: 'Debian suites to build (space-separated)'
+          required: true
+          default: 'bookworm trixie'
+          type: string
+        architectures:
+          description: 'Architectures to build (comma-separated)'
+          required: true
+          default: 'amd64,arm64'
+          type: string
+        verify_only:
+          description: 'Only verify against official (no push)'
+          required: true
+          default: true
+          type: boolean
+
+    schedule:
+      # Run weekly to verify reproducibility
+      - cron: '0 0 * * 0'
+
+  env:
+    DEBUERREOTYPE_VERSION: '0.16'
+    TZ: 'UTC'
+
+  jobs:
+    fetch-official:
+      name: Fetch Official Parameters
+      runs-on: ubuntu-latest
+      outputs:
+        serial: ${{ steps.params.outputs.serial }}
+        epoch: ${{ steps.params.outputs.epoch }}
+        timestamp: ${{ steps.params.outputs.timestamp }}
+        snapshot_url: ${{ steps.params.outputs.snapshot_url }}
+        matrix: ${{ steps.matrix.outputs.matrix }}
+
+      steps:
+        - name: Checkout docker-debian-artifacts
+          uses: actions/checkout@v4
+          with:
+            repository: debuerreotype/docker-debian-artifacts
+            ref: dist-amd64
+            path: official-amd64
+
+        - name: Extract official parameters
+          id: params
+          run: |
+            cd official-amd64
+
+            # The dist-* branches have flat structure with files at root
+            SERIAL=$(cat serial)
+            EPOCH=$(cat debuerreotype-epoch)
+            SNAPSHOT_URL="http://snapshot.debian.org/archive/debian/${SERIAL}T000000Z"
+
+            # Output parameters
+            echo "serial=$SERIAL" >> $GITHUB_OUTPUT
+            echo "epoch=$EPOCH" >> $GITHUB_OUTPUT
+            echo "timestamp=@$EPOCH" >> $GITHUB_OUTPUT
+            echo "snapshot_url=$SNAPSHOT_URL" >> $GITHUB_OUTPUT
+
+            # Create summary
+            echo "### Official Build Parameters" >> $GITHUB_STEP_SUMMARY
+            echo "- **Serial**: $SERIAL" >> $GITHUB_STEP_SUMMARY
+            echo "- **Epoch**: $EPOCH" >> $GITHUB_STEP_SUMMARY
+            echo "- **Timestamp**: @$EPOCH" >> $GITHUB_STEP_SUMMARY
+            echo "- **Snapshot**: $SNAPSHOT_URL" >> $GITHUB_STEP_SUMMARY
+
+        - name: Setup build matrix
+          id: matrix
+          run: |
+            # Parse architectures input
+            IFS=',' read -ra ARCHS <<< "${{ github.event.inputs.architectures || 'amd64,arm64' }}"
+
+            # Create matrix JSON with proper architecture mappings
+            MATRIX='{"include":['
+            FIRST=true
+            for arch in "${ARCHS[@]}"; do
+              arch=$(echo "$arch" | xargs)  # trim whitespace
+
+              # Map architecture names to runner, dpkg_arch, and artifacts branch
+              case "$arch" in
+                amd64)
+                  runner="ubuntu-latest"
+                  dpkg_arch="amd64"
+                  artifacts_branch="dist-amd64"
+                  ;;
+                arm64)
+                  runner="ubuntu-latest"  # Use QEMU
+                  dpkg_arch="arm64"
+                  artifacts_branch="dist-arm64v8"
+                  ;;
+                armhf)
+                  runner="ubuntu-latest"
+                  dpkg_arch="armhf"
+                  artifacts_branch="dist-arm32v7"
+                  ;;
+                i386)
+                  runner="ubuntu-latest"
+                  dpkg_arch="i386"
+                  artifacts_branch="dist-i386"
+                  ;;
+                ppc64el)
+                  runner="ubuntu-latest"
+                  dpkg_arch="ppc64le"
+                  artifacts_branch="dist-ppc64le"
+                  ;;
+                s390x)
+                  echo "Warning: s390x not yet available in artifacts repo"
+                  continue
+                  ;;
+                *)
+                  echo "Unknown architecture: $arch"
+                  continue
+                  ;;
+              esac
+
+              if [ "$FIRST" = true ]; then
+                FIRST=false
+              else
+                MATRIX+=','
+              fi
+
+              MATRIX+="{\"arch\":\"$arch\",\"dpkg_arch\":\"$dpkg_arch\",\"runner\":\"$runner\",\"artifacts_branch\":\"$artifacts_branch\"}"
+            done
+            MATRIX+=']}'
+
+            echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
+
+    build:
+      name: Build ${{ matrix.arch }}
+      needs: fetch-official
+      runs-on: ${{ matrix.runner }}
+      strategy:
+        fail-fast: false
+        matrix: ${{ fromJSON(needs.fetch-official.outputs.matrix) }}
+
+      steps:
+        - name: Checkout repository
+          uses: actions/checkout@v4
+
+        - name: Checkout docker-debian-artifacts (${{ matrix.arch }})
+          uses: actions/checkout@v4
+          with:
+            repository: debuerreotype/docker-debian-artifacts
+            ref: ${{ matrix.artifacts_branch }}
+            path: official-${{ matrix.arch }}
+
+        - name: Set up Docker Buildx
+          uses: docker/setup-buildx-action@v3
+
+        - name: Set up QEMU
+          if: matrix.arch != 'amd64'
+          uses: docker/setup-qemu-action@v3
+
+        - name: Cache debuerreotype
+          uses: actions/cache@v4
+          with:
+            path: ~/.cache/debuerreotype
+            key: debuerreotype-${{ env.DEBUERREOTYPE_VERSION }}-${{ matrix.arch }}
+
+        - name: Setup debuerreotype
+          run: |
+            set -Eeuo pipefail -x
+
+            # Clone specific version
+            if [ ! -d ~/.cache/debuerreotype ]; then
+              git clone https://github.com/debuerreotype/debuerreotype.git ~/.cache/debuerreotype
+            fi
+
+            cd ~/.cache/debuerreotype
+            git fetch --tags
+            git checkout "refs/tags/${DEBUERREOTYPE_VERSION}"
+
+            # Copy to workspace
+            cp -r ~/.cache/debuerreotype ${{ github.workspace }}/debuerreotype
+
+            # Verify version
+            cd ${{ github.workspace }}/debuerreotype
+            ./scripts/debuerreotype-version
+
+        - name: Build debuerreotype Docker image
+          run: |
+            cd debuerreotype
+            docker build --pull -t debuerreotype:${{ env.DEBUERREOTYPE_VERSION }} .
+
+        - name: Build Debian rootfs
+          run: |
+            set -Eeuo pipefail -x
+
+            SERIAL="${{ needs.fetch-official.outputs.serial }}"
+            EPOCH="${{ needs.fetch-official.outputs.epoch }}"
+            SUITES="${{ github.event.inputs.suites || 'bookworm trixie' }}"
+
+            mkdir -p output
+
+            # Run debuerreotype (uses /opt/debuerreotype from Dockerfile)
+            docker run \
+              --rm \
+              --cap-add SYS_ADMIN \
+              --cap-drop SETFCAP \
+              --security-opt seccomp=unconfined \
+              --security-opt apparmor=unconfined \
+              --tmpfs /tmp:dev,exec,suid,noatime \
+              --env TZ=UTC \
+              --env SOURCE_DATE_EPOCH="$EPOCH" \
+              --env TMPDIR=/tmp \
+              --volume $PWD/output:/output \
+              debuerreotype:${{ env.DEBUERREOTYPE_VERSION }} \
+              sh -c "
+                set -ex
+                cd /tmp
+                for suite in $SUITES; do
+                  echo \"Building \$suite for ${{ matrix.dpkg_arch }}...\"
+                  /opt/debuerreotype/examples/debian.sh \
+                    --arch=\"${{ matrix.dpkg_arch }}\" \
+                    /output \
+                    \"\$suite\" \
+                    \"@$EPOCH\"
+                done
+              "
+
+        - name: Verify reproducibility
+          id: verify
+          run: |
+            set -Eeuo pipefail
+
+            SERIAL="${{ needs.fetch-official.outputs.serial }}"
+            SUITES="${{ github.event.inputs.suites || 'bookworm trixie' }}"
+            ARCH="${{ matrix.arch }}"
+            DPKG_ARCH="${{ matrix.dpkg_arch }}"
+
+            echo "## Reproducibility Report ($ARCH)" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+
+            FAILED=0
+            for suite in $SUITES; do
+              echo "### $suite" >> $GITHUB_STEP_SUMMARY
+
+              # Our build
+              OUR_FILE="output/$SERIAL/$DPKG_ARCH/$suite/rootfs.tar.xz"
+              if [ ! -f "$OUR_FILE" ]; then
+                echo "❌ Build failed - file not found" >> $GITHUB_STEP_SUMMARY
+                FAILED=1
+                continue
+              fi
+
+              OUR_SHA256=$(sha256sum "$OUR_FILE" | cut -d' ' -f1)
+
+              # Official checksum (flat structure: official-$ARCH/$suite/rootfs.tar.xz.sha256)
+              OFFICIAL_FILE="official-$ARCH/$suite/rootfs.tar.xz.sha256"
+              if [ -f "$OFFICIAL_FILE" ]; then
+                OFFICIAL_SHA256=$(cut -d' ' -f1 < "$OFFICIAL_FILE")
+                
+                if [ "$OUR_SHA256" = "$OFFICIAL_SHA256" ]; then
+                  echo "✅ **Reproducible!**" >> $GITHUB_STEP_SUMMARY
+                  echo "- SHA256: \`$OUR_SHA256\`" >> $GITHUB_STEP_SUMMARY
+                else
+                  echo "❌ **Not reproducible**" >> $GITHUB_STEP_SUMMARY
+                  echo "- Official: \`$OFFICIAL_SHA256\`" >> $GITHUB_STEP_SUMMARY
+                  echo "- Ours: \`$OUR_SHA256\`" >> $GITHUB_STEP_SUMMARY
+                  FAILED=1
+                fi
+              else
+                echo "⚠️ Official checksum not found" >> $GITHUB_STEP_SUMMARY
+                echo "- Our SHA256: \`$OUR_SHA256\`" >> $GITHUB_STEP_SUMMARY
+              fi
+              
+              echo "" >> $GITHUB_STEP_SUMMARY
+            done
+            
+            if [ $FAILED -eq 0 ]; then
+              echo "✅ All builds reproducible" >> $GITHUB_STEP_SUMMARY
+              echo "success=true" >> $GITHUB_OUTPUT
+            else
+              echo "❌ Some builds not reproducible" >> $GITHUB_STEP_SUMMARY
+              echo "success=false" >> $GITHUB_OUTPUT
+              exit 1
+            fi
+        
+        - name: Upload artifacts
+          if: always()
+          uses: actions/upload-artifact@v4
+          with:
+            name: debian-${{ matrix.arch }}-${{ needs.fetch-official.outputs.serial }}
+            path: output/
+            retention-days: 7
+
+    summary:
+      name: Final Summary
+      needs: [fetch-official, build]
+      runs-on: ubuntu-latest
+      if: always()
+      
+      steps:
+        - name: Generate final report
+          run: |
+            echo "# Debian Reproducible Build Report" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Serial**: ${{ needs.fetch-official.outputs.serial }}" >> $GITHUB_STEP_SUMMARY
+            echo "**Debuerreotype**: ${{ env.DEBUERREOTYPE_VERSION }}" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            
+            if [ "${{ contains(needs.build.result, 'success') }}" = "true" ]; then
+              echo "## ✅ All builds are reproducible!" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "## ❌ Some builds failed reproducibility check" >> $GITHUB_STEP_SUMMARY
+            fi

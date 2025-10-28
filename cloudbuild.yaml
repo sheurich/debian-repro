@@ -1,0 +1,237 @@
+  # cloudbuild.yaml
+  # Reproducible Debian rootfs build - matches official Docker Hub images exactly
+  timeout: 7200s
+
+  options:
+    machineType: 'E2_HIGHCPU_8'
+    diskSizeGb: 100
+    logging: CLOUD_LOGGING_ONLY
+
+  substitutions:
+    # Architecture to build
+    _ARCH: 'amd64'
+    _DPKG_ARCH: 'amd64'
+    # Exact version used by official builds
+    _DEBUERREOTYPE_VERSION: '0.16'
+    # Target suites to build
+    _SUITES: 'bookworm trixie'
+
+  steps:
+    # Step 1: Fetch official build parameters
+    - name: 'gcr.io/cloud-builders/git'
+      id: 'fetch-official-params'
+      entrypoint: 'bash'
+      args:
+        - '-c'
+        - |
+          set -Eeuo pipefail
+
+          # Clone docker-debian-artifacts to get official timestamps
+          git clone --depth 1 --single-branch --branch dist-${_ARCH} \
+            https://github.com/debuerreotype/docker-debian-artifacts.git official-artifacts
+
+          # Extract official build parameters
+          cd official-artifacts
+
+          # The dist-* branches have flat structure with files at root:
+          # - serial (contains "YYYYMMDD")
+          # - debuerreotype-epoch (contains epoch timestamp)
+          # - bookworm/, trixie/, etc. (suite directories)
+
+          SERIAL=$(cat serial)
+          EPOCH=$(cat debuerreotype-epoch)
+          SNAPSHOT_URL="http://snapshot.debian.org/archive/debian/${SERIAL}T000000Z"
+
+          # Save for other steps
+          echo "$SERIAL" > /workspace/serial.txt
+          echo "$EPOCH" > /workspace/epoch.txt
+          echo "$SNAPSHOT_URL" > /workspace/snapshot-url.txt
+          echo "@$EPOCH" > /workspace/timestamp.txt
+
+          # Save official checksums for verification
+          # Official artifacts are stored in flat structure: suite/rootfs.tar.xz.sha256
+          mkdir -p /workspace/official-checksums
+          for suite in $_SUITES; do
+            if [ -f "$suite/rootfs.tar.xz.sha256" ]; then
+              cp "$suite/rootfs.tar.xz.sha256" \
+                "/workspace/official-checksums/$suite.sha256"
+            fi
+          done
+
+          echo "Official build parameters:"
+          echo "  Serial: $SERIAL"
+          echo "  Epoch: $EPOCH"
+          echo "  Snapshot: $SNAPSHOT_URL"
+
+    # Step 2: Download and prepare debuerreotype
+    - name: 'ubuntu:22.04'
+      id: 'setup-debuerreotype'
+      entrypoint: 'bash'
+      args:
+        - '-c'
+        - |
+          set -Eeuo pipefail -x
+
+          apt-get update -qq
+          apt-get install -y -qq wget tar git
+
+          cd /workspace
+
+          # Clone exact version of debuerreotype
+          git clone https://github.com/debuerreotype/debuerreotype.git
+          cd debuerreotype
+          git checkout "refs/tags/${_DEBUERREOTYPE_VERSION}"
+
+          # Verify version
+          ./scripts/debuerreotype-version
+
+          # DO NOT modify the Dockerfile - use official debian base
+          # The FROM line should remain: FROM debian:unstable-slim
+      waitFor: ['fetch-official-params']
+
+    # Step 3: Build debuerreotype Docker image
+    - name: 'gcr.io/cloud-builders/docker'
+      id: 'build-debuerreotype'
+      args:
+        - 'build'
+        - '--pull'
+        - '--tag'
+        - 'debuerreotype:${_DEBUERREOTYPE_VERSION}'
+        - '/workspace/debuerreotype'
+      waitFor: ['setup-debuerreotype']
+
+    # Step 4: Run debuerreotype to build rootfs
+    - name: 'gcr.io/cloud-builders/docker'
+      id: 'build-rootfs'
+      entrypoint: 'bash'
+      args:
+        - '-c'
+        - |
+          set -Eeuo pipefail -x
+
+          # Read official parameters
+          EPOCH=$(cat /workspace/epoch.txt)
+          SERIAL=$(cat /workspace/serial.txt)
+          SNAPSHOT_URL=$(cat /workspace/snapshot-url.txt)
+
+          # Create output directory
+          mkdir -p /workspace/output
+
+          # Run debuerreotype with exact same parameters as official
+          # Pass variables as environment variables to avoid shell expansion issues
+          docker run \
+            --rm \
+            --cap-add SYS_ADMIN \
+            --cap-drop SETFCAP \
+            --security-opt seccomp=unconfined \
+            --security-opt apparmor=unconfined \
+            --tmpfs /tmp:dev,exec,suid,noatime \
+            --env TZ=UTC \
+            --env SOURCE_DATE_EPOCH="$EPOCH" \
+            --env TMPDIR=/tmp \
+            --env SUITES="${_SUITES}" \
+            --env DPKG_ARCH="${_DPKG_ARCH}" \
+            --env EPOCH="$EPOCH" \
+            --volume /workspace/output:/output \
+            debuerreotype:${_DEBUERREOTYPE_VERSION} \
+            sh -c '
+              set -ex
+              cd /tmp
+              for suite in $SUITES; do
+                echo "Building $suite for $DPKG_ARCH..."
+
+                # Run debian.sh with exact parameters (uses /opt/debuerreotype from Dockerfile)
+                /opt/debuerreotype/examples/debian.sh \
+                  --arch="$DPKG_ARCH" \
+                  /output \
+                  "$suite" \
+                  "@$EPOCH"
+              done
+            '
+      waitFor: ['build-debuerreotype']
+
+    # Step 5: Verify reproducibility
+    - name: 'ubuntu:22.04'
+      id: 'verify-reproducibility'
+      entrypoint: 'bash'
+      args:
+        - '-c'
+        - |
+          set -Eeuo pipefail
+
+          SERIAL=$(cat /workspace/serial.txt)
+          FAILED=0
+
+          echo "=== Reproducibility Verification ==="
+          echo ""
+
+          for suite in $_SUITES; do
+            echo "Checking $suite (${_DPKG_ARCH})..."
+
+            # Our build
+            OUR_FILE="/workspace/output/$SERIAL/${_DPKG_ARCH}/$suite/rootfs.tar.xz"
+            if [ ! -f "$OUR_FILE" ]; then
+              echo "  ERROR: Our build not found: $OUR_FILE"
+              FAILED=1
+              continue
+            fi
+
+            OUR_SHA256=$(sha256sum "$OUR_FILE" | cut -d' ' -f1)
+            
+            # Official checksum
+            OFFICIAL_FILE="/workspace/official-checksums/$suite.sha256"
+            if [ ! -f "$OFFICIAL_FILE" ]; then
+              echo "  WARNING: Official checksum not found"
+              echo "  Our SHA256: $OUR_SHA256"
+              continue
+            fi
+            
+            OFFICIAL_SHA256=$(cut -d' ' -f1 < "$OFFICIAL_FILE")
+            
+            if [ "$OUR_SHA256" = "$OFFICIAL_SHA256" ]; then
+              echo "  ✅ MATCH! SHA256: $OUR_SHA256"
+            else
+              echo "  ❌ MISMATCH!"
+              echo "     Official: $OFFICIAL_SHA256"
+              echo "     Ours:     $OUR_SHA256"
+              FAILED=1
+            fi
+            echo ""
+          done
+          
+          if [ $FAILED -eq 0 ]; then
+            echo "🎉 All builds are reproducible!"
+          else
+            echo "❌ Some builds did not match"
+            exit 1
+          fi
+      waitFor: ['build-rootfs']
+
+    # Step 6: Create OCI images (optional - only if reproducible)
+    - name: 'ubuntu:22.04'
+      id: 'create-oci'
+      entrypoint: 'bash'
+      args:
+        - '-c'
+        - |
+          set -Eeuo pipefail -x
+
+          SERIAL=$(cat /workspace/serial.txt)
+
+          # Only create OCI if builds are reproducible
+          for suite in $_SUITES; do
+            rootfs_dir="/workspace/output/$SERIAL/${_DPKG_ARCH}/$suite"
+            if [ -d "$rootfs_dir" ]; then
+              /workspace/debuerreotype/examples/oci-image.sh \
+                "$rootfs_dir/oci.tar" \
+                "$rootfs_dir"
+            fi
+          done
+      waitFor: ['verify-reproducibility']
+
+  artifacts:
+    objects:
+      location: 'gs://${PROJECT_ID}_cloudbuild/debian-reproducible/${BUILD_ID}'
+      paths:
+        - '/workspace/output/**/*'
+        - '/workspace/official-checksums/*'
