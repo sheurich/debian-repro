@@ -1,0 +1,125 @@
+# .github/workflows/lint.yml
+# Lint shell scripts and YAML files for code quality
+
+name: Lint
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+    branches: ['**']
+  workflow_dispatch:
+
+jobs:
+  shellcheck:
+    name: Shellcheck
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955  # v4.3.0
+
+      - name: Run shellcheck
+        uses: ludeeus/action-shellcheck@00b27aa7cb85167568cb48a3838b75f4265f2bca  # 2.0.0
+        with:
+          scandir: './scripts'
+          severity: warning
+          format: gcc
+          additional_files: ''
+
+      - name: Generate shellcheck report
+        if: always()
+        run: |
+          echo "## Shellcheck Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ -f shellcheck.log ]; then
+            issue_count=$(wc -l < shellcheck.log || echo "0")
+            if [ "$issue_count" -eq 0 ]; then
+              echo "✅ No issues found!" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "⚠️ Found $issue_count issues:" >> $GITHUB_STEP_SUMMARY
+              echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+              cat shellcheck.log >> $GITHUB_STEP_SUMMARY
+              echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            fi
+          else
+            echo "✅ No issues found!" >> $GITHUB_STEP_SUMMARY
+          fi
+
+  yamllint:
+    name: YAML Lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955  # v4.3.0
+
+      - name: Setup Python
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b  # v5.3.0
+        with:
+          python-version: '3.11'
+
+      - name: Install yamllint
+        run: pip install yamllint
+
+      - name: Create yamllint config
+        run: |
+          cat > .yamllint.yml <<EOF
+          extends: default
+
+          rules:
+            line-length:
+              max: 120
+              level: warning
+            comments:
+              min-spaces-from-content: 1
+            indentation:
+              spaces: 2
+              indent-sequences: true
+            document-start: disable
+            truthy:
+              allowed-values: ['true', 'false']
+              check-keys: false
+          EOF
+
+      - name: Run yamllint
+        run: |
+          yamllint -f colored -c .yamllint.yml .github/workflows/ cloudbuild.yaml > yamllint.log 2>&1 || true
+
+      - name: Generate yamllint report
+        if: always()
+        run: |
+          echo "## yamllint Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ -s yamllint.log ]; then
+            echo "⚠️ YAML linting issues found:" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            cat yamllint.log >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "✅ No YAML issues found!" >> $GITHUB_STEP_SUMMARY
+          fi
+
+  summary:
+    name: Lint Summary
+    needs: [shellcheck, yamllint]
+    runs-on: ubuntu-latest
+    if: always()
+
+    steps:
+      - name: Generate summary
+        run: |
+          echo "# Lint Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ needs.shellcheck.result }}" = "success" ] && \
+             [ "${{ needs.yamllint.result }}" = "success" ]; then
+            echo "## ✅ All linting checks passed!" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "## ❌ Some linting checks failed" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "- Shellcheck: ${{ needs.shellcheck.result }}" >> $GITHUB_STEP_SUMMARY
+            echo "- yamllint: ${{ needs.yamllint.result }}" >> $GITHUB_STEP_SUMMARY
+          fi

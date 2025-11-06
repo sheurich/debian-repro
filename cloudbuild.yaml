@@ -78,7 +78,7 @@
           cd /workspace
 
           # Clone exact version of debuerreotype
-          git clone https://github.com/debuerreotype/debuerreotype.git
+          git clone --depth 1 https://github.com/debuerreotype/debuerreotype.git
           cd debuerreotype
           git checkout "refs/tags/${_DEBUERREOTYPE_VERSION}"
 

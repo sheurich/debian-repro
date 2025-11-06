@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Debian Reproducibility Verification Dashboard</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <header>
+    <h1>Debian Reproducibility Verification</h1>
+    <p class="subtitle">Bit-for-bit verification of official Debian Docker images</p>
+
+    <div class="badges">
+      <img src="https://github.com/sheurich/debian-repro/actions/workflows/reproducible-debian-build.yml/badge.svg" alt="Build Status">
+      <img src="https://github.com/sheurich/debian-repro/actions/workflows/lint.yml/badge.svg" alt="Lint Status">
+      <img src="https://img.shields.io/endpoint?url=https://sheurich.github.io/debian-repro/badges/reproducibility-rate.json" alt="Reproducibility Rate">
+      <img src="https://img.shields.io/endpoint?url=https://sheurich.github.io/debian-repro/badges/last-verified.json" alt="Last Verified">
+    </div>
+  </header>
+
+  <main>
+    <section class="overview">
+      <h2>Current Status</h2>
+      <div id="loading">Loading latest verification results...</div>
+      <div id="overview-cards" class="cards" style="display: none;"></div>
+    </section>
+
+    <section class="matrix">
+      <h2>Verification Matrix</h2>
+      <div id="verification-matrix"></div>
+    </section>
+
+    <section class="trends">
+      <h2>30-Day Reproducibility Trend</h2>
+      <canvas id="trend-chart"></canvas>
+    </section>
+
+    <section class="architecture-details">
+      <h2>Architecture Details</h2>
+      <div id="arch-accordion"></div>
+    </section>
+
+    <section class="about">
+      <h2>About This Project</h2>
+      <p>
+        This dashboard tracks the reproducibility of official Debian Docker images.
+        We rebuild images using <a href="https://github.com/debuerreotype/debuerreotype" target="_blank">Debuerreotype</a>
+        and verify bit-for-bit reproducibility by comparing SHA256 checksums.
+      </p>
+      <p>
+        <strong>Why reproducibility matters:</strong> Reproducible builds prove supply chain integrity
+        and allow independent verification that published binaries match their source code.
+      </p>
+      <div class="links">
+        <a href="https://github.com/sheurich/debian-repro" target="_blank">📦 GitHub Repository</a>
+        <a href="https://github.com/sheurich/debian-repro/actions" target="_blank">🔄 CI Runs</a>
+        <a href="https://reproducible-builds.org/" target="_blank">📚 Learn More</a>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>
+      Powered by <a href="https://github.com/debuerreotype/debuerreotype">Debuerreotype</a> |
+      Data updated weekly via GitHub Actions |
+      <a href="https://github.com/sheurich/debian-repro">View Source</a>
+    </p>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>

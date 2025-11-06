@@ -1,0 +1,19 @@
+# Build artifacts
+output/
+results/
+
+# Official parameters
+official-*/
+
+# Debuerreotype clone
+debuerreotype/
+
+# macOS
+.DS_Store
+
+# Temporary files
+*.tmp
+*.log
+
+# Test outputs
+test-results.tap

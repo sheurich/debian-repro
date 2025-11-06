@@ -1,4 +1,9 @@
-# README.md
+# Debian Reproducibility Verification
+
+![Build Status](https://github.com/sheurich/debian-repro/actions/workflows/reproducible-debian-build.yml/badge.svg)
+![Lint Status](https://github.com/sheurich/debian-repro/actions/workflows/lint.yml/badge.svg)
+![Reproducibility Rate](https://img.shields.io/endpoint?url=https://sheurich.github.io/debian-repro/badges/reproducibility-rate.json)
+![Last Verified](https://img.shields.io/endpoint?url=https://sheurich.github.io/debian-repro/badges/last-verified.json)
 
 ## Project Purpose
 
@@ -19,6 +24,19 @@ This repository verifies the reproducibility of official Debian Docker images by
 - Build using identical timestamp (`SOURCE_DATE_EPOCH`)
 - Compare SHA256 checksums between local build and official artifacts
 - Build fails if checksums don't match
+
+## Quick Start
+
+### Local Verification (One Command)
+
+```bash
+# Clone and run
+git clone https://github.com/sheurich/debian-repro.git
+cd debian-repro
+./verify-local.sh
+```
+
+For detailed local setup instructions, see **[docs/local-setup.md](docs/local-setup.md)**.
 
 ## Common Commands
 
@@ -113,4 +131,4 @@ The timestamp from official builds MUST be used exactly - this is the single mos
 
 ## Documentation
 
-See `HOWTO.md` for detailed step-by-step instructions on using Debuerreotype and verifying builds.
+See [`docs/debuerreotype-guide.md`](docs/debuerreotype-guide.md) for detailed step-by-step instructions on using Debuerreotype and verifying builds.
