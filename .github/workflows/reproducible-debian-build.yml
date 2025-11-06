@@ -29,10 +29,14 @@
     DEBUERREOTYPE_VERSION: '0.16'
     TZ: 'UTC'
 
+  permissions:
+    contents: read
+    packages: write
+
   jobs:
     fetch-official:
       name: Fetch Official Parameters
-      runs-on: ubuntu-latest
+      runs-on: ubuntu-24.04
       outputs:
         serial: ${{ steps.params.outputs.serial }}
         epoch: ${{ steps.params.outputs.epoch }}
@@ -86,27 +90,27 @@
               # Map architecture names to runner, dpkg_arch, and artifacts branch
               case "$arch" in
                 amd64)
-                  runner="ubuntu-latest"
+                  runner="ubuntu-24.04"  # Native x86_64
                   dpkg_arch="amd64"
                   artifacts_branch="dist-amd64"
                   ;;
                 arm64)
-                  runner="ubuntu-latest"  # Use QEMU
+                  runner="ubuntu-24.04-arm"  # Native ARM64 - much faster!
                   dpkg_arch="arm64"
                   artifacts_branch="dist-arm64v8"
                   ;;
                 armhf)
-                  runner="ubuntu-latest"
+                  runner="ubuntu-24.04-arm"  # Native 32-bit ARM on ARM64
                   dpkg_arch="armhf"
                   artifacts_branch="dist-arm32v7"
                   ;;
                 i386)
-                  runner="ubuntu-latest"
+                  runner="ubuntu-24.04"  # Needs QEMU
                   dpkg_arch="i386"
                   artifacts_branch="dist-i386"
                   ;;
                 ppc64el)
-                  runner="ubuntu-latest"
+                  runner="ubuntu-24.04"  # Needs QEMU
                   dpkg_arch="ppc64le"
                   artifacts_branch="dist-ppc64le"
                   ;;
@@ -155,7 +159,11 @@
           uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435  # v3.11.1
 
         - name: Set up QEMU
-          if: matrix.arch != 'amd64'
+          # QEMU needed for cross-architecture builds:
+          # - ubuntu-24.04 (x86_64): native amd64, needs QEMU for i386/ppc64el
+          # - ubuntu-24.04-arm (arm64): native arm64/armhf (32-bit ARM runs on 64-bit ARM hardware)
+          # Note: Docker requires QEMU for i386 on amd64 despite x86 backward compatibility
+          if: (matrix.runner == 'ubuntu-24.04' && matrix.arch != 'amd64')
           uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130  # v3.7.0
 
         - name: Cache debuerreotype
@@ -203,7 +211,7 @@
               --cache-from type=registry,ref=ghcr.io/${{ github.repository }}/debuerreotype-cache:${{ matrix.arch }}-${{ env.DEBUERREOTYPE_VERSION }} \
               --cache-to type=registry,ref=ghcr.io/${{ github.repository }}/debuerreotype-cache:${{ matrix.arch }}-${{ env.DEBUERREOTYPE_VERSION }},mode=max \
               --tag debuerreotype:${{ env.DEBUERREOTYPE_VERSION }} \
-              --platform linux/${{ matrix.arch == 'amd64' && 'amd64' || matrix.arch }} \
+              --platform linux/${{ matrix.arch }} \
               .
 
         - name: Build Debian rootfs
@@ -311,7 +319,7 @@
     summary:
       name: Final Summary
       needs: [fetch-official, build]
-      runs-on: ubuntu-latest
+      runs-on: ubuntu-24.04
       if: always()
       
       steps:
