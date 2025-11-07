@@ -1,0 +1,225 @@
+name: Test GCP Authentication
+
+on:
+  workflow_dispatch:
+
+env:
+  GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+  GCP_RESULTS_BUCKET: ${{ vars.GCP_RESULTS_BUCKET }}
+
+permissions:
+  contents: read
+  id-token: write  # Required for Workload Identity Federation
+
+jobs:
+  test-workload-identity:
+    name: Test Workload Identity Federation
+    runs-on: ubuntu-latest
+    if: vars.GCP_WIF_PROVIDER != ''
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud (Workload Identity)
+        id: auth-wif
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_WIF_SERVICE_ACCOUNT }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Test authentication
+        run: |
+          echo "Testing authentication with Workload Identity Federation..."
+          echo ""
+          echo "Current configuration:"
+          gcloud config list
+          echo ""
+          echo "Authenticated as:"
+          gcloud auth list
+          echo ""
+          echo "Project ID: ${GCP_PROJECT_ID}"
+
+      - name: Test Cloud Build access
+        run: |
+          echo "Testing Cloud Build access..."
+          gcloud builds list --limit=1 --project="${GCP_PROJECT_ID}" || echo "No previous builds found (this is OK)"
+
+      - name: Test GCS access
+        run: |
+          echo "Testing GCS bucket access..."
+          echo "Test file from GitHub Actions (Workload Identity)" > test-wif.txt
+          gsutil cp test-wif.txt "gs://${GCP_RESULTS_BUCKET}/test/test-wif-$(date +%s).txt"
+          echo "✅ Successfully uploaded test file to GCS"
+
+          echo ""
+          echo "Listing test files in bucket:"
+          gsutil ls "gs://${GCP_RESULTS_BUCKET}/test/" || echo "No test files yet"
+
+      - name: Summary
+        run: |
+          echo "## ✅ Workload Identity Federation Test Successful" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- Authenticated successfully" >> $GITHUB_STEP_SUMMARY
+          echo "- Cloud Build API accessible" >> $GITHUB_STEP_SUMMARY
+          echo "- GCS bucket accessible" >> $GITHUB_STEP_SUMMARY
+
+  test-service-account-key:
+    name: Test Service Account Key
+    runs-on: ubuntu-latest
+    if: vars.GCP_WIF_PROVIDER == '' && secrets.GCP_SA_KEY != ''
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud (Service Account Key)
+        id: auth-key
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Test authentication
+        run: |
+          echo "Testing authentication with Service Account Key..."
+          echo ""
+          echo "Current configuration:"
+          gcloud config list
+          echo ""
+          echo "Authenticated as:"
+          gcloud auth list
+          echo ""
+          echo "Project ID: ${GCP_PROJECT_ID}"
+
+      - name: Test Cloud Build access
+        run: |
+          echo "Testing Cloud Build access..."
+          gcloud builds list --limit=1 --project="${GCP_PROJECT_ID}" || echo "No previous builds found (this is OK)"
+
+      - name: Test GCS access
+        run: |
+          echo "Testing GCS bucket access..."
+          echo "Test file from GitHub Actions (Service Account Key)" > test-key.txt
+          gsutil cp test-key.txt "gs://${GCP_RESULTS_BUCKET}/test/test-key-$(date +%s).txt"
+          echo "✅ Successfully uploaded test file to GCS"
+
+          echo ""
+          echo "Listing test files in bucket:"
+          gsutil ls "gs://${GCP_RESULTS_BUCKET}/test/" || echo "No test files yet"
+
+      - name: Summary
+        run: |
+          echo "## ✅ Service Account Key Test Successful" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- Authenticated successfully" >> $GITHUB_STEP_SUMMARY
+          echo "- Cloud Build API accessible" >> $GITHUB_STEP_SUMMARY
+          echo "- GCS bucket accessible" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "⚠️ **Note**: Consider migrating to Workload Identity Federation for better security" >> $GITHUB_STEP_SUMMARY
+
+  test-cloud-build-submission:
+    name: Test Cloud Build Submission
+    runs-on: ubuntu-latest
+    needs: [test-workload-identity, test-service-account-key]
+    if: always() && (needs.test-workload-identity.result == 'success' || needs.test-service-account-key.result == 'success')
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_WIF_SERVICE_ACCOUNT }}
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Create test Cloud Build config
+        run: |
+          cat > test-cloudbuild.yaml <<EOF
+          steps:
+            - name: 'ubuntu'
+              args: ['echo', 'Hello from Cloud Build!']
+            - name: 'ubuntu'
+              entrypoint: 'bash'
+              args:
+                - '-c'
+                - |
+                  echo "Test build successful" > result.txt
+                  echo "Timestamp: \$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> result.txt
+                  cat result.txt
+
+          artifacts:
+            objects:
+              location: 'gs://${GCP_RESULTS_BUCKET}/test-builds/\$BUILD_ID'
+              paths: ['result.txt']
+
+          options:
+            logging: CLOUD_LOGGING_ONLY
+          EOF
+
+      - name: Submit test build
+        id: build
+        run: |
+          echo "Submitting test build to Cloud Build..."
+          BUILD_ID=$(gcloud builds submit \
+            --config=test-cloudbuild.yaml \
+            --project="${GCP_PROJECT_ID}" \
+            --format="value(id)" \
+            --no-source)
+
+          echo "build_id=${BUILD_ID}" >> $GITHUB_OUTPUT
+          echo "Build submitted: ${BUILD_ID}"
+
+      - name: Wait for build completion
+        run: |
+          BUILD_ID="${{ steps.build.outputs.build_id }}"
+          echo "Waiting for build ${BUILD_ID} to complete..."
+
+          # Wait up to 5 minutes
+          for i in {1..30}; do
+            STATUS=$(gcloud builds describe "${BUILD_ID}" \
+              --project="${GCP_PROJECT_ID}" \
+              --format="value(status)")
+
+            echo "Status: ${STATUS}"
+
+            if [[ "${STATUS}" == "SUCCESS" ]]; then
+              echo "✅ Build completed successfully!"
+              break
+            elif [[ "${STATUS}" == "FAILURE" || "${STATUS}" == "TIMEOUT" || "${STATUS}" == "CANCELLED" ]]; then
+              echo "❌ Build failed with status: ${STATUS}"
+              gcloud builds log "${BUILD_ID}" --project="${GCP_PROJECT_ID}"
+              exit 1
+            fi
+
+            sleep 10
+          done
+
+      - name: Retrieve build artifact
+        run: |
+          BUILD_ID="${{ steps.build.outputs.build_id }}"
+          echo "Retrieving build artifact..."
+          gsutil cp "gs://${GCP_RESULTS_BUCKET}/test-builds/${BUILD_ID}/result.txt" .
+          echo ""
+          echo "Build artifact contents:"
+          cat result.txt
+
+      - name: Summary
+        run: |
+          echo "## ✅ Cloud Build Submission Test Successful" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- Successfully submitted build" >> $GITHUB_STEP_SUMMARY
+          echo "- Build completed successfully" >> $GITHUB_STEP_SUMMARY
+          echo "- Retrieved build artifacts from GCS" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Build ID: \`${{ steps.build.outputs.build_id }}\`" >> $GITHUB_STEP_SUMMARY
