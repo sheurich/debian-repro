@@ -1,0 +1,119 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://sheurich.github.io/debian-repro/schemas/report.json",
+  "title": "Debian Reproducibility Verification Report",
+  "description": "Schema for verification report JSON files",
+  "type": "object",
+  "required": ["timestamp", "run_id", "serial", "epoch", "environment", "architectures"],
+  "properties": {
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp when report was generated"
+    },
+    "run_id": {
+      "type": "string",
+      "description": "CI run identifier"
+    },
+    "serial": {
+      "type": "string",
+      "pattern": "^[0-9]{8}$",
+      "description": "Build serial in YYYYMMDD format"
+    },
+    "epoch": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "SOURCE_DATE_EPOCH used for builds"
+    },
+    "environment": {
+      "type": "object",
+      "description": "Build environment metadata",
+      "required": ["timestamp"],
+      "properties": {
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "os": {
+          "type": "object",
+          "properties": {
+            "name": {"type": "string"},
+            "version": {"type": "string"},
+            "kernel": {"type": "string"},
+            "arch": {"type": "string"}
+          }
+        },
+        "docker": {"type": "string"},
+        "qemu": {"type": "string"},
+        "git": {
+          "type": "object",
+          "properties": {
+            "version": {"type": "string"},
+            "sha": {"type": "string"},
+            "branch": {"type": "string"}
+          }
+        },
+        "github_actions": {
+          "type": ["object", "null"],
+          "properties": {
+            "runner_os": {"type": "string"},
+            "runner_arch": {"type": "string"},
+            "runner_name": {"type": "string"}
+          }
+        }
+      }
+    },
+    "architectures": {
+      "type": "object",
+      "description": "Map of architecture names to verification results",
+      "patternProperties": {
+        "^(amd64|arm64|armhf|i386|ppc64el|s390x)$": {
+          "type": "object",
+          "required": ["status", "suites"],
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": ["success", "failed", "pending"],
+              "description": "Overall status for this architecture"
+            },
+            "suites": {
+              "type": "object",
+              "description": "Map of suite names to verification results",
+              "patternProperties": {
+                "^(forky|trixie|bookworm|bullseye|unstable)$": {
+                  "type": "object",
+                  "required": ["reproducible", "sha256", "build_time_seconds"],
+                  "properties": {
+                    "reproducible": {
+                      "type": "boolean",
+                      "description": "Whether the build was reproducible"
+                    },
+                    "sha256": {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{64}$|^build-failed$|^pending\\.\\.\\.$",
+                      "description": "SHA256 checksum (64 hex chars) or status indicator"
+                    },
+                    "official_sha256": {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{64}$|^not-available$",
+                      "description": "Official SHA256 checksum for comparison"
+                    },
+                    "build_time_seconds": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "description": "Build duration in seconds"
+                    },
+                    "error": {
+                      "type": "string",
+                      "description": "Error message if build failed"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -4,13 +4,20 @@ This guide explains how to configure and use the reproducibility verification da
 
 ## Overview
 
-The dashboard provides a web-based interface showing:
-- Current reproducibility status for all architectures and suites
-- 30-day historical trend chart
-- Per-architecture verification details
-- Status badges for embedding in README files
+The dashboard provides a web-based interface following Edward Tufte's design principles for data visualization:
+
+### Features
+
+- **Minimal chartjunk**: Typography-first design with high data-ink ratio
+- **Dense information display**: Status matrix showing all architectures × suites
+- **Multiple data formats**: JSON, CSV, and JSON-LD exports
+- **Inline sparklines**: 7-day trends for each metric
+- **API documentation**: Programmatic access guide
+- **Accessibility**: WCAG 2.1 AA compliant with ARIA labels
+- **Status badges**: Shields.io compatible endpoints for README files
 
 **Live Dashboard:** https://sheurich.github.io/debian-repro/
+**API Documentation:** https://sheurich.github.io/debian-repro/api.html
 
 ## Configuring GitHub Pages
 
@@ -55,6 +62,7 @@ The dashboard automatically updates after each verification run through the GitH
    - Runs `generate-report.sh` to create comprehensive report
    - Updates `dashboard/data/latest.json` with current results
    - Appends to `dashboard/data/history.json` (keeps last 90 entries)
+   - Runs `generate-exports.sh` to create CSV and JSON-LD exports
    - Runs `generate-badges.sh` to regenerate all badge endpoints
    - Commits and pushes changes to repository
 4. **GitHub Pages Deployment** - The `pages.yml` workflow triggers on push to main when `dashboard/` files change, builds and deploys to Pages
@@ -69,17 +77,21 @@ The dashboard automatically updates after each verification run through the GitH
 
 ```
 dashboard/
-├── index.html              # Main dashboard page
-├── script.js               # Dashboard JavaScript (Chart.js, data fetching)
-├── style.css               # Responsive styling
+├── index.html              # Main dashboard page (Tufte-inspired design)
+├── api.html                # API documentation page
+├── script.js               # Dashboard JavaScript (no external dependencies)
+├── style.css               # Minimal, typography-first styling
 ├── .nojekyll               # Disable Jekyll processing
 ├── badges/                 # Shields.io badge JSON endpoints
 │   ├── build-status.json           # Overall build status
 │   ├── reproducibility-rate.json   # Percentage of reproducible builds
 │   └── last-verified.json          # Last verification date
 └── data/                   # Verification results
-    ├── latest.json         # Most recent verification results
-    └── history.json        # Historical results (90 most recent)
+    ├── latest.json         # Most recent verification results (JSON)
+    ├── latest.csv          # Most recent verification results (CSV)
+    ├── latest.jsonld       # Most recent verification results (JSON-LD)
+    ├── history.json        # Historical results (90 most recent)
+    └── history.csv         # Historical results (CSV format)
 ```
 
 ## Data Format
@@ -110,6 +122,37 @@ dashboard/
       }
     }
   }
+}
+```
+
+### latest.csv Structure
+
+```csv
+architecture,suite,reproducible,sha256,build_time_seconds,timestamp,serial
+amd64,bookworm,true,abc123...,456,2025-11-07T12:00:00Z,20251020
+amd64,trixie,true,def456...,432,2025-11-07T12:00:00Z,20251020
+arm64,bookworm,true,ghi789...,489,2025-11-07T12:00:00Z,20251020
+```
+
+### latest.jsonld Structure (Schema.org)
+
+```json
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Dataset",
+      "name": "Debian Reproducibility Verification Data",
+      "variableMeasured": [
+        {
+          "@type": "PropertyValue",
+          "name": "reproducibility_rate",
+          "value": 100,
+          "unitText": "percent"
+        }
+      ]
+    }
+  ]
 }
 ```
 
@@ -155,6 +198,37 @@ python3 -m http.server 8000
 open http://localhost:8000
 ```
 
+### Running Tests
+
+The dashboard includes comprehensive test coverage:
+
+```bash
+# Install dependencies (Node.js 18+ required)
+npm install
+
+# Run all tests
+npm test
+
+# Run tests in watch mode
+npm run test:watch
+
+# Generate coverage report
+npm run test:coverage
+
+# Validate JSON Schema
+npm run validate:json
+
+# Lint JavaScript
+npm run lint
+```
+
+### Test Coverage
+
+- **Unit tests**: Dashboard JavaScript functions (Jest)
+- **Integration tests**: Export generation scripts (BATS)
+- **Schema validation**: JSON, CSV, and JSON-LD formats (AJV)
+- **Accessibility tests**: WCAG 2.1 AA compliance
+
 ### Testing with Local Data
 
 Create sample data files for testing:
@@ -183,6 +257,11 @@ cat > dashboard/data/latest.json <<'EOF'
   }
 }
 EOF
+
+# Generate exports (CSV and JSON-LD)
+./scripts/generate-exports.sh \
+  --report dashboard/data/latest.json \
+  --output-dir dashboard/data
 
 # Generate badges
 ./scripts/generate-badges.sh \
@@ -363,6 +442,7 @@ git pull origin main
 
 ## Related Documentation
 
+- [API Documentation](https://sheurich.github.io/debian-repro/api.html) - Programmatic data access
 - [Local Setup Guide](local-setup.md) - Running verifications locally
 - [Debuerreotype Guide](debuerreotype-guide.md) - Understanding the build tool
 - [Design Document](design.md) - System architecture and design decisions

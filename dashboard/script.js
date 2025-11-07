@@ -1,129 +1,372 @@
-// Dashboard JavaScript for Debian Reproducibility Verification
+/**
+ * Debian Reproducibility Verification Dashboard
+ *
+ * Design philosophy: Edward Tufte principles
+ * - Minimal chartjunk, maximum data-ink ratio
+ * - Dense information display with micro/macro reading
+ * - Typography-first, static pre-rendering where possible
+ * - Progressive enhancement for optional features
+ *
+ * @author sheurich@fastly.com
+ * @version 2.0.0
+ */
 
-const DATA_URL = './data/latest.json';
-const HISTORY_URL = './data/history.json';
+'use strict';
 
-// State
-let latestReport = null;
-let history = [];
+// =============================================================================
+// Configuration & Constants
+// =============================================================================
+
+/** @const {string} URL for latest verification report */
+const DATA_URL_LATEST = './data/latest.json';
+
+/** @const {string} URL for historical verification reports */
+const DATA_URL_HISTORY = './data/history.json';
+
+/** @const {number} Number of days to show in sparklines */
+const SPARKLINE_DAYS = 7;
+
+// =============================================================================
+// State Management
+// =============================================================================
 
 /**
- * Initialize dashboard
+ * Global state object
+ * @type {{
+ *   latest: Object|null,
+ *   history: Array<Object>,
+ *   loaded: boolean
+ * }}
+ */
+const state = {
+  latest: null,
+  history: [],
+  loaded: false
+};
+
+// =============================================================================
+// Data Loading
+// =============================================================================
+
+/**
+ * Initialize dashboard by loading data and rendering all sections
+ * @returns {Promise<void>}
  */
 async function init() {
   try {
     await loadData();
-    renderOverview();
-    renderMatrix();
-    renderArchitectureDetails();
-    renderTrendChart();
-    hideLoading();
+    renderAll();
+    generateJSONLD();
+    state.loaded = true;
   } catch (error) {
-    showError('Failed to load verification data: ' + error.message);
+    handleError(error);
   }
 }
 
 /**
- * Load latest report and history
+ * Load both latest report and historical data
+ * Falls back to placeholder data if latest report unavailable
+ * @returns {Promise<void>}
  */
 async function loadData() {
+  // Load latest report
   try {
-    const response = await fetch(DATA_URL);
-    if (!response.ok) throw new Error('Latest report not available');
-    latestReport = await response.json();
+    const response = await fetch(DATA_URL_LATEST);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    state.latest = await response.json();
   } catch (error) {
-    console.warn('Latest report not available, using placeholder data');
-    latestReport = createPlaceholderData();
+    console.warn('Latest report unavailable, using placeholder:', error.message);
+    state.latest = createPlaceholderData();
   }
 
+  // Load historical data (optional)
   try {
-    const response = await fetch(HISTORY_URL);
+    const response = await fetch(DATA_URL_HISTORY);
     if (response.ok) {
-      history = await response.json();
+      state.history = await response.json();
     }
   } catch (error) {
-    console.warn('History not available');
-    history = [];
+    console.warn('History unavailable:', error.message);
+    state.history = [];
   }
 }
 
 /**
- * Create placeholder data for initial setup
+ * Create placeholder data for initial display
+ * @returns {Object} Placeholder verification report
  */
 function createPlaceholderData() {
   return {
     timestamp: new Date().toISOString(),
-    run_id: 'placeholder',
+    run_id: 'pending',
     serial: 'YYYYMMDD',
     epoch: 0,
-    architectures: {
-      amd64: {
-        status: 'success',
-        suites: {
-          bookworm: { reproducible: true, sha256: 'pending...', build_time_seconds: 0 },
-          trixie: { reproducible: true, sha256: 'pending...', build_time_seconds: 0 }
-        }
-      }
-    }
+    environment: { platform: 'pending', runner: 'pending' },
+    architectures: {}
   };
 }
 
+// =============================================================================
+// Rendering Functions
+// =============================================================================
+
 /**
- * Hide loading indicator
+ * Render all dashboard sections
  */
-function hideLoading() {
-  document.getElementById('loading').style.display = 'none';
-  document.getElementById('overview-cards').style.display = 'grid';
+function renderAll() {
+  renderSummaryBar();
+  renderStatusMatrix();
+  renderDetailsTable();
+  renderHistorySparklines();
+  updateLastUpdate();
 }
 
 /**
- * Show error message
+ * Render summary statistics bar (single line of key metrics)
+ * Format: "X% reproducible | N/M architectures | Xs avg build | Serial YYYYMMDD"
  */
-function showError(message) {
-  const loading = document.getElementById('loading');
-  loading.textContent = '⚠️ ' + message;
-  loading.style.color = '#e74c3c';
-}
-
-/**
- * Render overview cards
- */
-function renderOverview() {
-  const stats = calculateStats();
-  const container = document.getElementById('overview-cards');
+function renderSummaryBar() {
+  const container = document.getElementById('summary-bar');
+  const stats = calculateStats(state.latest);
 
   container.innerHTML = `
-    <div class="card ${stats.allReproducible ? 'success' : 'warning'}">
-      <div class="card-title">Reproducibility Rate</div>
-      <div class="card-value">${stats.rate}%</div>
-      <div class="card-subtitle">${stats.reproducible}/${stats.total} suites</div>
-    </div>
-
-    <div class="card">
-      <div class="card-title">Architectures</div>
-      <div class="card-value">${stats.architectures}</div>
-      <div class="card-subtitle">${stats.successfulArchs} passing</div>
-    </div>
-
-    <div class="card">
-      <div class="card-title">Last Verified</div>
-      <div class="card-value">${formatDate(latestReport.timestamp)}</div>
-      <div class="card-subtitle">Serial: ${latestReport.serial}</div>
-    </div>
-
-    <div class="card">
-      <div class="card-title">Build Time</div>
-      <div class="card-value">${stats.avgBuildTime}s</div>
-      <div class="card-subtitle">Average per suite</div>
+    <div class="summary-stats">
+      <span class="stat">
+        <span class="stat-value">${stats.rate}%</span>
+        <span class="stat-label">reproducible</span>
+      </span>
+      <span class="stat">
+        <span class="stat-value">${stats.successfulArchs}/${stats.totalArchs}</span>
+        <span class="stat-label">architectures</span>
+      </span>
+      <span class="stat">
+        <span class="stat-value">${stats.totalSuites}</span>
+        <span class="stat-label">suites</span>
+      </span>
+      <span class="stat">
+        <span class="stat-value">${stats.avgBuildTime}s</span>
+        <span class="stat-label">avg build</span>
+      </span>
+      <span class="stat">
+        <span class="stat-value">Serial ${state.latest.serial}</span>
+        <span class="stat-label">${formatDateShort(state.latest.timestamp)}</span>
+      </span>
     </div>
   `;
 }
 
 /**
- * Calculate statistics from latest report
+ * Render status matrix table (primary data display)
+ * Shows architecture × suite grid with status, build time, and sparklines
  */
-function calculateStats() {
-  const archs = latestReport.architectures;
+function renderStatusMatrix() {
+  const container = document.getElementById('matrix-table');
+  const archs = state.latest.architectures;
+  const archKeys = Object.keys(archs).sort();
+
+  if (archKeys.length === 0) {
+    container.innerHTML = '<p>No verification data available yet.</p>';
+    return;
+  }
+
+  // Get all unique suites across architectures
+  const allSuites = new Set();
+  archKeys.forEach(arch => {
+    Object.keys(archs[arch].suites || {}).forEach(suite => allSuites.add(suite));
+  });
+  const suites = Array.from(allSuites).sort();
+
+  // Build table header
+  let html = '<table class="matrix"><thead><tr>';
+  html += '<th scope="col">Architecture</th>';
+  suites.forEach(suite => {
+    html += `<th scope="col">${suite}</th>`;
+  });
+  html += '<th scope="col">Success Rate</th>';
+  html += '</tr></thead><tbody>';
+
+  // Build table rows (one per architecture)
+  archKeys.forEach(arch => {
+    const archData = archs[arch];
+    const archSuites = archData.suites || {};
+
+    html += `<tr><th scope="row">${arch}</th>`;
+
+    // Suite cells
+    suites.forEach(suite => {
+      const suiteData = archSuites[suite];
+      if (suiteData) {
+        const cellClass = suiteData.reproducible ? 'cell-pass' : 'cell-fail';
+        const status = suiteData.reproducible ? '✓' : '✗';
+        const time = suiteData.build_time_seconds || 0;
+        const sparkline = renderInlineSparkline(arch, suite);
+
+        html += `<td class="${cellClass}">
+          <div class="cell-content">
+            <span class="cell-status">${status}</span>
+            ${time > 0 ? `<span class="cell-time">${time}s</span>` : ''}
+            ${sparkline}
+          </div>
+        </td>`;
+      } else {
+        html += '<td class="cell-na">—</td>';
+      }
+    });
+
+    // Architecture success rate
+    const archStats = calculateArchStats(archData);
+    html += `<td>${archStats.rate}%</td>`;
+    html += '</tr>';
+  });
+
+  // Summary footer row
+  html += '</tbody><tfoot><tr>';
+  html += '<td>Overall</td>';
+  suites.forEach(suite => {
+    const suiteStats = calculateSuiteStats(suite, archs);
+    html += `<td>${suiteStats.rate}%</td>`;
+  });
+  const overallStats = calculateStats(state.latest);
+  html += `<td>${overallStats.rate}%</td>`;
+  html += '</tr></tfoot></table>';
+
+  container.innerHTML = html;
+}
+
+/**
+ * Render details table showing SHA256 checksums and build times
+ * with inline bar charts for build duration comparison
+ */
+function renderDetailsTable() {
+  const container = document.getElementById('details-content');
+  const archs = state.latest.architectures;
+  const archKeys = Object.keys(archs).sort();
+
+  if (archKeys.length === 0) {
+    container.innerHTML = '<p>No details available.</p>';
+    return;
+  }
+
+  // Find max build time for bar chart scaling
+  let maxBuildTime = 0;
+  archKeys.forEach(arch => {
+    Object.values(archs[arch].suites || {}).forEach(suite => {
+      maxBuildTime = Math.max(maxBuildTime, suite.build_time_seconds || 0);
+    });
+  });
+
+  // Build table
+  let html = '<table><thead><tr>';
+  html += '<th scope="col">Architecture</th>';
+  html += '<th scope="col">Suite</th>';
+  html += '<th scope="col">Status</th>';
+  html += '<th scope="col">SHA256</th>';
+  html += '<th scope="col">Build Time</th>';
+  html += '</tr></thead><tbody>';
+
+  archKeys.forEach(arch => {
+    const archData = archs[arch];
+    const suiteEntries = Object.entries(archData.suites || {}).sort((a, b) =>
+      a[0].localeCompare(b[0])
+    );
+
+    suiteEntries.forEach(([suite, data], idx) => {
+      const status = data.reproducible ? '✓ Reproducible' : '✗ Not Reproducible';
+      const statusClass = data.reproducible ? 'cell-pass' : 'cell-fail';
+      const sha = data.sha256 || data.our_sha256 || 'N/A';
+      const shaShort = sha.substring(0, 8);
+      const buildTime = data.build_time_seconds || 0;
+      const barWidth = maxBuildTime > 0 ? (buildTime / maxBuildTime) * 100 : 0;
+
+      html += '<tr>';
+      html += `<td>${idx === 0 ? arch : ''}</td>`;
+      html += `<td>${suite}</td>`;
+      html += `<td class="${statusClass}">${status}</td>`;
+      html += `<td><span class="sha256" data-full="${sha}" title="${sha}">${shaShort}…</span></td>`;
+      html += `<td>
+        <div class="build-time">
+          <span class="time-value">${buildTime}s</span>
+          <div class="time-bar" style="width: ${barWidth}%"></div>
+        </div>
+      </td>`;
+      html += '</tr>';
+    });
+  });
+
+  html += '</tbody></table>';
+  container.innerHTML = html;
+}
+
+/**
+ * Render 7-day history sparklines for each architecture
+ * Shows trend of reproducibility rate over time
+ */
+function renderHistorySparklines() {
+  const container = document.getElementById('history-sparklines');
+
+  if (state.history.length < 2) {
+    container.innerHTML = '<p>Historical data will appear after multiple builds.</p>';
+    return;
+  }
+
+  const archs = Object.keys(state.latest.architectures).sort();
+  const recentHistory = state.history.slice(-SPARKLINE_DAYS);
+
+  let html = '<div class="history-sparklines">';
+
+  archs.forEach(arch => {
+    // Calculate rates for this architecture across history
+    const rates = recentHistory.map(report => {
+      const archData = report.architectures[arch];
+      if (!archData) return null;
+      const stats = calculateArchStats(archData);
+      return stats.rate;
+    });
+
+    const currentRate = rates[rates.length - 1] || 0;
+    const svg = generateSparklineSVG(rates);
+
+    html += `
+      <div class="sparkline-item">
+        <span class="sparkline-label">${arch}</span>
+        ${svg}
+        <span class="sparkline-value">${currentRate}%</span>
+      </div>
+    `;
+  });
+
+  html += '</div>';
+  container.innerHTML = html;
+}
+
+/**
+ * Update "last updated" timestamp in footer
+ */
+function updateLastUpdate() {
+  const el = document.getElementById('last-update');
+  if (el && state.latest) {
+    el.textContent = formatDateLong(state.latest.timestamp);
+  }
+}
+
+// =============================================================================
+// Statistics Calculations
+// =============================================================================
+
+/**
+ * Calculate overall statistics from a verification report
+ * @param {Object} report - Verification report object
+ * @returns {{
+ *   totalArchs: number,
+ *   successfulArchs: number,
+ *   totalSuites: number,
+ *   reproducibleSuites: number,
+ *   rate: number,
+ *   avgBuildTime: number
+ * }}
+ */
+function calculateStats(report) {
+  const archs = report.architectures || {};
   const archKeys = Object.keys(archs);
 
   let totalSuites = 0;
@@ -135,207 +378,276 @@ function calculateStats() {
     const archData = archs[arch];
     if (archData.status === 'success') successfulArchs++;
 
-    Object.values(archData.suites).forEach(suite => {
+    Object.values(archData.suites || {}).forEach(suite => {
       totalSuites++;
       if (suite.reproducible) reproducibleSuites++;
       totalBuildTime += suite.build_time_seconds || 0;
     });
   });
 
-  const rate = totalSuites > 0 ? Math.round((reproducibleSuites / totalSuites) * 100) : 0;
-  const avgBuildTime = totalSuites > 0 ? Math.round(totalBuildTime / totalSuites) : 0;
+  const rate = totalSuites > 0
+    ? Math.round((reproducibleSuites / totalSuites) * 100)
+    : 0;
+
+  const avgBuildTime = totalSuites > 0
+    ? Math.round(totalBuildTime / totalSuites)
+    : 0;
 
   return {
-    total: totalSuites,
-    reproducible: reproducibleSuites,
-    rate,
-    architectures: archKeys.length,
+    totalArchs: archKeys.length,
     successfulArchs,
-    avgBuildTime,
-    allReproducible: reproducibleSuites === totalSuites && totalSuites > 0
+    totalSuites,
+    reproducibleSuites,
+    rate,
+    avgBuildTime
   };
 }
 
 /**
- * Render verification matrix table
+ * Calculate statistics for a single architecture
+ * @param {Object} archData - Architecture data from report
+ * @returns {{total: number, reproducible: number, rate: number}}
  */
-function renderMatrix() {
-  const archs = latestReport.architectures;
-  const archKeys = Object.keys(archs);
+function calculateArchStats(archData) {
+  const suites = Object.values(archData.suites || {});
+  const total = suites.length;
+  const reproducible = suites.filter(s => s.reproducible).length;
+  const rate = total > 0 ? Math.round((reproducible / total) * 100) : 0;
 
-  // Get all unique suites
-  const allSuites = new Set();
-  archKeys.forEach(arch => {
-    Object.keys(archs[arch].suites).forEach(suite => allSuites.add(suite));
-  });
-  const suites = Array.from(allSuites).sort();
-
-  // Build table
-  let html = '<table><thead><tr><th>Architecture</th>';
-  suites.forEach(suite => {
-    html += `<th>${suite}</th>`;
-  });
-  html += '</tr></thead><tbody>';
-
-  archKeys.forEach(arch => {
-    html += `<tr><td><strong>${arch}</strong></td>`;
-    suites.forEach(suite => {
-      const suiteData = archs[arch].suites[suite];
-      if (suiteData) {
-        const status = suiteData.reproducible ? 'success' : 'failed';
-        const label = suiteData.reproducible ? '✅ Pass' : '❌ Fail';
-        html += `<td><span class="status-badge status-${status}">${label}</span></td>`;
-      } else {
-        html += '<td><span class="status-badge status-unknown">N/A</span></td>';
-      }
-    });
-    html += '</tr>';
-  });
-
-  html += '</tbody></table>';
-  document.getElementById('verification-matrix').innerHTML = html;
+  return { total, reproducible, rate };
 }
 
 /**
- * Render architecture details accordion
+ * Calculate statistics for a single suite across all architectures
+ * @param {string} suite - Suite name
+ * @param {Object} archs - All architectures from report
+ * @returns {{total: number, reproducible: number, rate: number}}
  */
-function renderArchitectureDetails() {
-  const archs = latestReport.architectures;
-  const container = document.getElementById('arch-accordion');
-  let html = '';
-
-  Object.keys(archs).forEach((arch, index) => {
-    const archData = archs[arch];
-    const statusClass = archData.status === 'success' ? 'success' : 'danger';
-    const statusIcon = archData.status === 'success' ? '✅' : '❌';
-
-    html += `
-      <div class="accordion-item">
-        <div class="accordion-header" onclick="toggleAccordion(${index})">
-          <span>${statusIcon} <strong>${arch}</strong></span>
-          <span>${Object.keys(archData.suites).length} suites</span>
-        </div>
-        <div class="accordion-body" id="accordion-${index}">
-          <ul class="suite-list">
-    `;
-
-    Object.entries(archData.suites).forEach(([suite, data]) => {
-      const reproClass = data.reproducible ? 'reproducible' : 'not-reproducible';
-      const reproIcon = data.reproducible ? '✅' : '❌';
-      html += `
-        <li class="suite-item ${reproClass}">
-          <div class="suite-name">${reproIcon} ${suite}</div>
-          <div class="suite-details">
-            SHA256: ${data.sha256 || data.our_sha256 || 'N/A'}<br>
-            Build time: ${data.build_time_seconds || 0}s
-          </div>
-        </li>
-      `;
-    });
-
-    html += `
-          </ul>
-        </div>
-      </div>
-    `;
-  });
-
-  container.innerHTML = html;
-}
-
-/**
- * Toggle accordion item
- */
-function toggleAccordion(index) {
-  const body = document.getElementById(`accordion-${index}`);
-  body.classList.toggle('active');
-}
-
-/**
- * Render 30-day trend chart
- */
-function renderTrendChart() {
-  const ctx = document.getElementById('trend-chart');
-
-  // If no history, show placeholder
-  if (history.length === 0) {
-    ctx.parentElement.innerHTML = '<p style="text-align: center; color: #6c757d; padding: 2rem;">No historical data available yet. Check back after a few builds!</p>';
-    return;
-  }
-
-  // Prepare data (last 30 days)
-  const last30Days = history.slice(-30);
-  const labels = last30Days.map(r => formatDate(r.timestamp));
-  const rates = last30Days.map(r => {
-    const stats = calculateStatsForReport(r);
-    return stats.rate;
-  });
-
-  new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels,
-      datasets: [{
-        label: 'Reproducibility Rate (%)',
-        data: rates,
-        borderColor: '#d70a53',
-        backgroundColor: 'rgba(215, 10, 83, 0.1)',
-        tension: 0.4,
-        fill: true
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: true,
-      plugins: {
-        legend: {
-          display: false
-        },
-        tooltip: {
-          callbacks: {
-            label: (context) => `${context.parsed.y}% reproducible`
-          }
-        }
-      },
-      scales: {
-        y: {
-          beginAtZero: true,
-          max: 100,
-          ticks: {
-            callback: (value) => value + '%'
-          }
-        }
-      }
-    }
-  });
-}
-
-/**
- * Calculate stats for a specific report
- */
-function calculateStatsForReport(report) {
-  const archs = report.architectures;
-  let totalSuites = 0;
-  let reproducibleSuites = 0;
+function calculateSuiteStats(suite, archs) {
+  let total = 0;
+  let reproducible = 0;
 
   Object.values(archs).forEach(archData => {
-    Object.values(archData.suites).forEach(suite => {
-      totalSuites++;
-      if (suite.reproducible) reproducibleSuites++;
-    });
+    const suiteData = (archData.suites || {})[suite];
+    if (suiteData) {
+      total++;
+      if (suiteData.reproducible) reproducible++;
+    }
   });
 
-  const rate = totalSuites > 0 ? Math.round((reproducibleSuites / totalSuites) * 100) : 0;
-  return { total: totalSuites, reproducible: reproducibleSuites, rate };
+  const rate = total > 0 ? Math.round((reproducible / total) * 100) : 0;
+  return { total, reproducible, rate };
+}
+
+// =============================================================================
+// Sparkline Generation
+// =============================================================================
+
+/**
+ * Render inline sparkline SVG for a specific architecture/suite combo
+ * Shows last 7 data points as a tiny line chart
+ * @param {string} arch - Architecture name
+ * @param {string} suite - Suite name
+ * @returns {string} SVG HTML string or empty string
+ */
+function renderInlineSparkline(arch, suite) {
+  if (state.history.length < 2) return '';
+
+  const recent = state.history.slice(-SPARKLINE_DAYS);
+  const values = recent.map(report => {
+    const archData = report.architectures[arch];
+    const suiteData = (archData?.suites || {})[suite];
+    return suiteData ? (suiteData.reproducible ? 1 : 0) : null;
+  }).filter(v => v !== null);
+
+  if (values.length < 2) return '';
+
+  return generateSparklineSVG(values, 40, 16);
 }
 
 /**
- * Format ISO date to readable format
+ * Generate sparkline SVG from array of values
+ * @param {Array<number>} values - Data points to plot
+ * @param {number} [width=100] - SVG width in pixels
+ * @param {number} [height=24] - SVG height in pixels
+ * @returns {string} SVG HTML string
  */
-function formatDate(isoString) {
-  const date = new Date(isoString);
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+function generateSparklineSVG(values, width = 100, height = 24) {
+  if (!values || values.length < 2) return '';
+
+  const filteredValues = values.filter(v => v !== null);
+  if (filteredValues.length < 2) return '';
+
+  const min = Math.min(...filteredValues);
+  const max = Math.max(...filteredValues);
+  const range = max - min || 1;
+
+  const points = filteredValues.map((val, idx) => {
+    const x = (idx / (filteredValues.length - 1)) * width;
+    const y = height - ((val - min) / range) * height;
+    return `${x},${y}`;
+  }).join(' ');
+
+  return `
+    <svg class="sparkline"
+         width="${width}"
+         height="${height}"
+         viewBox="0 0 ${width} ${height}"
+         aria-hidden="true">
+      <polyline
+        points="${points}"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.5"
+        vector-effect="non-scaling-stroke" />
+    </svg>
+  `;
 }
 
-// Initialize on page load
-document.addEventListener('DOMContentLoaded', init);
+// =============================================================================
+// JSON-LD Structured Data
+// =============================================================================
+
+/**
+ * Generate and inject JSON-LD structured data for search engines
+ * Uses Schema.org vocabulary for Dataset and SoftwareApplication types
+ */
+function generateJSONLD() {
+  const stats = calculateStats(state.latest);
+
+  const structuredData = {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Dataset",
+        "name": "Debian Reproducibility Verification Data",
+        "description": "Bit-for-bit verification results of official Debian Docker images",
+        "url": "https://sheurich.github.io/debian-repro/",
+        "license": "https://opensource.org/licenses/MIT",
+        "creator": {
+          "@type": "Person",
+          "name": "Shiloh Heurich",
+          "email": "sheurich@fastly.com"
+        },
+        "distribution": [
+          {
+            "@type": "DataDownload",
+            "encodingFormat": "application/json",
+            "contentUrl": "https://sheurich.github.io/debian-repro/data/latest.json"
+          },
+          {
+            "@type": "DataDownload",
+            "encodingFormat": "text/csv",
+            "contentUrl": "https://sheurich.github.io/debian-repro/data/latest.csv"
+          },
+          {
+            "@type": "DataDownload",
+            "encodingFormat": "application/ld+json",
+            "contentUrl": "https://sheurich.github.io/debian-repro/data/latest.jsonld"
+          }
+        ],
+        "temporalCoverage": state.latest.timestamp,
+        "variableMeasured": [
+          {
+            "@type": "PropertyValue",
+            "name": "reproducibility_rate",
+            "value": stats.rate,
+            "unitText": "percent"
+          },
+          {
+            "@type": "PropertyValue",
+            "name": "verified_architectures",
+            "value": stats.totalArchs
+          },
+          {
+            "@type": "PropertyValue",
+            "name": "verified_suites",
+            "value": stats.totalSuites
+          }
+        ]
+      },
+      {
+        "@type": "SoftwareApplication",
+        "name": "Debian Reproducibility Verification Dashboard",
+        "applicationCategory": "DeveloperApplication",
+        "operatingSystem": "Any",
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "USD"
+        },
+        "codeRepository": "https://github.com/sheurich/debian-repro"
+      }
+    ]
+  };
+
+  const script = document.getElementById('structured-data');
+  if (script) {
+    script.textContent = JSON.stringify(structuredData, null, 2);
+  }
+}
+
+// =============================================================================
+// Utility Functions
+// =============================================================================
+
+/**
+ * Format ISO date to short format (MMM DD, YYYY)
+ * @param {string} isoString - ISO 8601 date string
+ * @returns {string} Formatted date
+ */
+function formatDateShort(isoString) {
+  const date = new Date(isoString);
+  return date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric'
+  });
+}
+
+/**
+ * Format ISO date to long format (Month DD, YYYY at HH:MM UTC)
+ * @param {string} isoString - ISO 8601 date string
+ * @returns {string} Formatted date
+ */
+function formatDateLong(isoString) {
+  const date = new Date(isoString);
+  return date.toLocaleString('en-US', {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'UTC',
+    timeZoneName: 'short'
+  });
+}
+
+/**
+ * Handle and display errors
+ * @param {Error} error - Error object
+ */
+function handleError(error) {
+  console.error('Dashboard error:', error);
+  const loading = document.getElementById('loading');
+  if (loading) {
+    loading.textContent = `Error loading data: ${error.message}`;
+    loading.style.color = '#8b0000';
+  }
+}
+
+// =============================================================================
+// Initialization
+// =============================================================================
+
+// Initialize dashboard when DOM is ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init);
+} else {
+  init();
+}
+
+// Expose state for debugging in development
+if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+  window.dashboardState = state;
+}

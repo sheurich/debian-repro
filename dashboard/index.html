@@ -3,71 +3,79 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Debian Reproducibility Verification Dashboard</title>
+  <title>Debian Reproducibility Verification</title>
+  <meta name="description" content="Bit-for-bit verification of official Debian Docker images using Debuerreotype">
   <link rel="stylesheet" href="style.css">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
 <body>
   <header>
     <h1>Debian Reproducibility Verification</h1>
-    <p class="subtitle">Bit-for-bit verification of official Debian Docker images</p>
-
-    <div class="badges">
-      <img src="https://github.com/sheurich/debian-repro/actions/workflows/reproducible-debian-build.yml/badge.svg" alt="Build Status">
-      <img src="https://github.com/sheurich/debian-repro/actions/workflows/lint.yml/badge.svg" alt="Lint Status">
-      <img src="https://img.shields.io/endpoint?url=https://sheurich.github.io/debian-repro/badges/reproducibility-rate.json" alt="Reproducibility Rate">
-      <img src="https://img.shields.io/endpoint?url=https://sheurich.github.io/debian-repro/badges/last-verified.json" alt="Last Verified">
-    </div>
+    <p class="subtitle">Bit-for-bit verification of official Docker images</p>
   </header>
 
   <main>
-    <section class="overview">
-      <h2>Current Status</h2>
-      <div id="loading">Loading latest verification results...</div>
-      <div id="overview-cards" class="cards" style="display: none;"></div>
+    <!-- Summary Statistics Bar -->
+    <section class="summary-bar" id="summary-bar" aria-label="Summary statistics">
+      <div id="loading" role="status" aria-live="polite">Loading verification data...</div>
     </section>
 
-    <section class="matrix">
-      <h2>Verification Matrix</h2>
-      <div id="verification-matrix"></div>
-    </section>
-
-    <section class="trends">
-      <h2>30-Day Reproducibility Trend</h2>
-      <canvas id="trend-chart"></canvas>
-    </section>
-
-    <section class="architecture-details">
-      <h2>Architecture Details</h2>
-      <div id="arch-accordion"></div>
-    </section>
-
-    <section class="about">
-      <h2>About This Project</h2>
-      <p>
-        This dashboard tracks the reproducibility of official Debian Docker images.
-        We rebuild images using <a href="https://github.com/debuerreotype/debuerreotype" target="_blank">Debuerreotype</a>
-        and verify bit-for-bit reproducibility by comparing SHA256 checksums.
-      </p>
-      <p>
-        <strong>Why reproducibility matters:</strong> Reproducible builds prove supply chain integrity
-        and allow independent verification that published binaries match their source code.
-      </p>
-      <div class="links">
-        <a href="https://github.com/sheurich/debian-repro" target="_blank">📦 GitHub Repository</a>
-        <a href="https://github.com/sheurich/debian-repro/actions" target="_blank">🔄 CI Runs</a>
-        <a href="https://reproducible-builds.org/" target="_blank">📚 Learn More</a>
+    <!-- Status Matrix (Primary Display) -->
+    <section class="status-matrix" aria-labelledby="matrix-heading">
+      <div class="section-header">
+        <h2 id="matrix-heading">Current Verification Status</h2>
+        <div class="data-exports">
+          <a href="data/latest.json" class="export-link" aria-label="Download JSON data">JSON</a>
+          <a href="data/latest.csv" class="export-link" aria-label="Download CSV data">CSV</a>
+          <a href="data/latest.jsonld" class="export-link" aria-label="Download JSON-LD data">JSON-LD</a>
+          <span class="export-note">Machine-readable formats | <a href="api.html">API Docs</a></span>
+        </div>
       </div>
+      <div id="matrix-table" role="table" aria-label="Verification matrix showing reproducibility status by architecture and suite"></div>
+    </section>
+
+    <!-- Architecture Details Table -->
+    <section class="details-table" aria-labelledby="details-heading">
+      <h2 id="details-heading">Build Details</h2>
+      <div id="details-content"></div>
+    </section>
+
+    <!-- Historical Context (Minimal) -->
+    <section class="history-context" aria-labelledby="history-heading">
+      <h2 id="history-heading">7-Day Context</h2>
+      <div id="history-sparklines" aria-label="Sparklines showing 7-day reproducibility trends"></div>
+    </section>
+
+    <!-- About & Methodology -->
+    <section class="about">
+      <h2>Methodology</h2>
+      <p>
+        We rebuild official Debian Docker images using <a href="https://github.com/debuerreotype/debuerreotype">Debuerreotype</a>
+        with identical timestamps and verify bit-for-bit reproducibility via SHA256 checksum comparison.
+      </p>
+      <p>
+        <strong>Reproducible builds</strong> prove supply chain integrity and enable independent verification
+        that published binaries match their source code.
+      </p>
+      <nav class="links" aria-label="Related resources">
+        <a href="https://github.com/sheurich/debian-repro">Repository</a>
+        <a href="https://github.com/sheurich/debian-repro/actions">CI Runs</a>
+        <a href="https://reproducible-builds.org/">Learn More</a>
+        <a href="api.html">API Documentation</a>
+      </nav>
     </section>
   </main>
 
   <footer>
     <p>
-      Powered by <a href="https://github.com/debuerreotype/debuerreotype">Debuerreotype</a> |
-      Data updated weekly via GitHub Actions |
-      <a href="https://github.com/sheurich/debian-repro">View Source</a>
+      Data: <a href="https://github.com/sheurich/debian-repro">sheurich/debian-repro</a> |
+      Tool: <a href="https://github.com/debuerreotype/debuerreotype">Debuerreotype</a> |
+      Updated: <span id="last-update">weekly via GitHub Actions</span>
     </p>
   </footer>
+
+  <!-- JSON-LD Structured Data -->
+  <script type="application/ld+json" id="structured-data">
+  </script>
 
   <script src="script.js"></script>
 </body>

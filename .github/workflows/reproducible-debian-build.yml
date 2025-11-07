@@ -494,6 +494,12 @@
 
           echo "Dashboard data updated successfully"
 
+      - name: Generate data exports
+        run: |
+          ./scripts/generate-exports.sh \
+            --report dashboard/data/latest.json \
+            --output-dir dashboard/data
+
       - name: Generate badges
         run: |
           ./scripts/generate-badges.sh \

@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>API Documentation - Debian Reproducibility Verification</title>
+  <meta name="description" content="API documentation for programmatic access to Debian reproducibility verification data">
+  <link rel="stylesheet" href="style.css">
+  <style>
+    /* Additional styles for API documentation */
+    pre {
+      background-color: #f5f5f5;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      padding: var(--space-md);
+      overflow-x: auto;
+      font-family: var(--font-mono);
+      font-size: var(--text-sm);
+      line-height: 1.4;
+    }
+
+    code {
+      font-family: var(--font-mono);
+      font-size: 0.9em;
+      background-color: #f5f5f5;
+      padding: 0.1em 0.3em;
+      border-radius: 3px;
+    }
+
+    pre code {
+      background-color: transparent;
+      padding: 0;
+    }
+
+    .endpoint {
+      background-color: #f9f9f9;
+      border-left: 4px solid var(--color-accent);
+      padding: var(--space-md);
+      margin-bottom: var(--space-lg);
+    }
+
+    .endpoint h3 {
+      margin-top: 0;
+      margin-bottom: var(--space-sm);
+      font-size: var(--text-lg);
+    }
+
+    .method {
+      display: inline-block;
+      font-family: var(--font-mono);
+      font-weight: 700;
+      padding: 0.2em 0.5em;
+      background-color: var(--color-accent);
+      color: white;
+      border-radius: 3px;
+      font-size: var(--text-sm);
+      margin-right: var(--space-sm);
+    }
+
+    .url {
+      font-family: var(--font-mono);
+      font-size: var(--text-sm);
+      word-break: break-all;
+    }
+
+    .schema-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: var(--space-md) 0;
+      font-size: var(--text-sm);
+    }
+
+    .schema-table th,
+    .schema-table td {
+      padding: var(--space-sm);
+      text-align: left;
+      border-bottom: 1px solid #ddd;
+    }
+
+    .schema-table th {
+      font-weight: 600;
+      border-bottom: 2px solid var(--color-text);
+    }
+
+    .schema-table code {
+      font-size: var(--text-xs);
+    }
+
+    .toc {
+      background-color: #f9f9f9;
+      padding: var(--space-md);
+      margin-bottom: var(--space-xl);
+    }
+
+    .toc ul {
+      list-style: none;
+      padding-left: var(--space-md);
+    }
+
+    .toc li {
+      margin-bottom: var(--space-xs);
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>API Documentation</h1>
+    <p class="subtitle">Programmatic access to Debian reproducibility verification data</p>
+    <nav class="links" style="margin-top: var(--space-md);">
+      <a href="index.html">← Back to Dashboard</a>
+      <a href="https://github.com/sheurich/debian-repro">GitHub Repository</a>
+    </nav>
+  </header>
+
+  <main>
+    <!-- Table of Contents -->
+    <section class="toc">
+      <h2>Contents</h2>
+      <ul>
+        <li><a href="#overview">Overview</a></li>
+        <li><a href="#endpoints">Endpoints</a>
+          <ul>
+            <li><a href="#latest-json">Latest Report (JSON)</a></li>
+            <li><a href="#latest-csv">Latest Report (CSV)</a></li>
+            <li><a href="#latest-jsonld">Latest Report (JSON-LD)</a></li>
+            <li><a href="#history-json">Historical Data (JSON)</a></li>
+            <li><a href="#history-csv">Historical Data (CSV)</a></li>
+            <li><a href="#badges">Badge Endpoints</a></li>
+          </ul>
+        </li>
+        <li><a href="#schemas">Data Schemas</a></li>
+        <li><a href="#examples">Usage Examples</a></li>
+        <li><a href="#rate-limits">Rate Limits</a></li>
+      </ul>
+    </section>
+
+    <!-- Overview -->
+    <section id="overview">
+      <h2>Overview</h2>
+      <p>
+        All verification data is available in multiple machine-readable formats via static endpoints.
+        These files are updated weekly via GitHub Actions and served through GitHub Pages.
+      </p>
+      <p>
+        <strong>Base URL:</strong> <code>https://sheurich.github.io/debian-repro/</code>
+      </p>
+      <p>
+        <strong>Update Frequency:</strong> Weekly (Sundays at 00:00 UTC) + manual triggers
+      </p>
+      <p>
+        <strong>Data Retention:</strong> Last 90 historical reports
+      </p>
+    </section>
+
+    <!-- Endpoints -->
+    <section id="endpoints">
+      <h2>Endpoints</h2>
+
+      <!-- Latest JSON -->
+      <div class="endpoint" id="latest-json">
+        <h3><span class="method">GET</span> Latest Verification Report (JSON)</h3>
+        <p class="url">https://sheurich.github.io/debian-repro/data/latest.json</p>
+        <p>
+          Complete verification report including environment metadata, architecture results,
+          and suite-level details.
+        </p>
+        <h4>Response Format</h4>
+        <pre><code>{
+  "timestamp": "2025-11-07T12:00:00Z",
+  "run_id": "1234567890",
+  "serial": "20251020",
+  "epoch": 1760918400,
+  "environment": {
+    "timestamp": "2025-11-07T12:00:00Z",
+    "os": {
+      "name": "Ubuntu",
+      "version": "22.04",
+      "kernel": "5.15.0",
+      "arch": "x86_64"
+    },
+    "docker": "24.0.0",
+    "qemu": "7.0.0",
+    "git": {
+      "version": "2.40.0",
+      "sha": "d9b20d2...",
+      "branch": "main"
+    }
+  },
+  "architectures": {
+    "amd64": {
+      "status": "success",
+      "suites": {
+        "bookworm": {
+          "reproducible": true,
+          "sha256": "abc123...",
+          "build_time_seconds": 456
+        }
+      }
+    }
+  }
+}</code></pre>
+      </div>
+
+      <!-- Latest CSV -->
+      <div class="endpoint" id="latest-csv">
+        <h3><span class="method">GET</span> Latest Verification Report (CSV)</h3>
+        <p class="url">https://sheurich.github.io/debian-repro/data/latest.csv</p>
+        <p>
+          Flat table format for spreadsheet analysis and data science workflows.
+        </p>
+        <h4>Columns</h4>
+        <table class="schema-table">
+          <thead>
+            <tr>
+              <th>Column</th>
+              <th>Type</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>architecture</code></td>
+              <td>string</td>
+              <td>Architecture name (amd64, arm64, etc.)</td>
+            </tr>
+            <tr>
+              <td><code>suite</code></td>
+              <td>string</td>
+              <td>Debian suite name (bookworm, trixie, etc.)</td>
+            </tr>
+            <tr>
+              <td><code>reproducible</code></td>
+              <td>boolean</td>
+              <td>Whether the build was reproducible</td>
+            </tr>
+            <tr>
+              <td><code>sha256</code></td>
+              <td>string</td>
+              <td>SHA256 checksum of rootfs tarball</td>
+            </tr>
+            <tr>
+              <td><code>build_time_seconds</code></td>
+              <td>integer</td>
+              <td>Build duration in seconds</td>
+            </tr>
+            <tr>
+              <td><code>timestamp</code></td>
+              <td>ISO 8601</td>
+              <td>Verification timestamp</td>
+            </tr>
+            <tr>
+              <td><code>serial</code></td>
+              <td>string</td>
+              <td>Build serial (YYYYMMDD)</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Latest JSON-LD -->
+      <div class="endpoint" id="latest-jsonld">
+        <h3><span class="method">GET</span> Latest Report (JSON-LD)</h3>
+        <p class="url">https://sheurich.github.io/debian-repro/data/latest.jsonld</p>
+        <p>
+          Structured data using <a href="https://schema.org">Schema.org</a> vocabulary
+          for semantic web applications and search engines.
+        </p>
+        <h4>Schema Types</h4>
+        <ul>
+          <li><code>Dataset</code> - Verification data description</li>
+          <li><code>SoftwareApplication</code> - Dashboard application metadata</li>
+          <li><code>PropertyValue</code> - Metrics and measurements</li>
+        </ul>
+      </div>
+
+      <!-- History JSON -->
+      <div class="endpoint" id="history-json">
+        <h3><span class="method">GET</span> Historical Verification Data (JSON)</h3>
+        <p class="url">https://sheurich.github.io/debian-repro/data/history.json</p>
+        <p>
+          Array of verification reports (last 90 entries). Each entry has the same schema as <code>latest.json</code>.
+        </p>
+        <h4>Response Format</h4>
+        <pre><code>[
+  {
+    "timestamp": "2025-11-07T12:00:00Z",
+    "run_id": "1234567890",
+    "serial": "20251020",
+    ...
+  },
+  {
+    "timestamp": "2025-10-31T12:00:00Z",
+    "run_id": "1234567889",
+    "serial": "20251013",
+    ...
+  }
+]</code></pre>
+      </div>
+
+      <!-- History CSV -->
+      <div class="endpoint" id="history-csv">
+        <h3><span class="method">GET</span> Historical Data (CSV)</h3>
+        <p class="url">https://sheurich.github.io/debian-repro/data/history.csv</p>
+        <p>
+          Flat table with all historical verification results. Same columns as <code>latest.csv</code>.
+        </p>
+      </div>
+
+      <!-- Badges -->
+      <div class="endpoint" id="badges">
+        <h3><span class="method">GET</span> Badge Endpoints</h3>
+        <p>
+          <a href="https://shields.io">Shields.io</a> compatible badge JSON endpoints for README badges.
+        </p>
+        <h4>Available Badges</h4>
+        <ul>
+          <li><code>badges/build-status.json</code> - Overall build status (passing/failing)</li>
+          <li><code>badges/reproducibility-rate.json</code> - Reproducibility percentage</li>
+          <li><code>badges/last-verified.json</code> - Last verification date</li>
+        </ul>
+        <h4>Usage</h4>
+        <pre><code>https://img.shields.io/endpoint?url=https://sheurich.github.io/debian-repro/badges/reproducibility-rate.json</code></pre>
+      </div>
+    </section>
+
+    <!-- Data Schemas -->
+    <section id="schemas">
+      <h2>Data Schemas</h2>
+
+      <h3>Verification Report Schema</h3>
+      <table class="schema-table">
+        <thead>
+          <tr>
+            <th>Field</th>
+            <th>Type</th>
+            <th>Required</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>timestamp</code></td>
+            <td>ISO 8601 string</td>
+            <td>Yes</td>
+            <td>Report generation timestamp (UTC)</td>
+          </tr>
+          <tr>
+            <td><code>run_id</code></td>
+            <td>string</td>
+            <td>Yes</td>
+            <td>CI run identifier</td>
+          </tr>
+          <tr>
+            <td><code>serial</code></td>
+            <td>string</td>
+            <td>Yes</td>
+            <td>Build serial in YYYYMMDD format</td>
+          </tr>
+          <tr>
+            <td><code>epoch</code></td>
+            <td>integer</td>
+            <td>Yes</td>
+            <td>SOURCE_DATE_EPOCH used for builds</td>
+          </tr>
+          <tr>
+            <td><code>environment</code></td>
+            <td>object</td>
+            <td>Yes</td>
+            <td>Build environment metadata</td>
+          </tr>
+          <tr>
+            <td><code>architectures</code></td>
+            <td>object</td>
+            <td>Yes</td>
+            <td>Map of architecture names to results</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>Architecture Result Schema</h3>
+      <table class="schema-table">
+        <thead>
+          <tr>
+            <th>Field</th>
+            <th>Type</th>
+            <th>Required</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>status</code></td>
+            <td>enum</td>
+            <td>Yes</td>
+            <td>success | failed | pending</td>
+          </tr>
+          <tr>
+            <td><code>suites</code></td>
+            <td>object</td>
+            <td>Yes</td>
+            <td>Map of suite names to verification results</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>Suite Verification Schema</h3>
+      <table class="schema-table">
+        <thead>
+          <tr>
+            <th>Field</th>
+            <th>Type</th>
+            <th>Required</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>reproducible</code></td>
+            <td>boolean</td>
+            <td>Yes</td>
+            <td>Whether checksums matched</td>
+          </tr>
+          <tr>
+            <td><code>sha256</code></td>
+            <td>string</td>
+            <td>Yes</td>
+            <td>SHA256 checksum (64 hex chars)</td>
+          </tr>
+          <tr>
+            <td><code>official_sha256</code></td>
+            <td>string</td>
+            <td>No</td>
+            <td>Official checksum for comparison</td>
+          </tr>
+          <tr>
+            <td><code>build_time_seconds</code></td>
+            <td>integer</td>
+            <td>No</td>
+            <td>Build duration in seconds</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- Usage Examples -->
+    <section id="examples">
+      <h2>Usage Examples</h2>
+
+      <h3>Fetch Latest Report</h3>
+      <pre><code>curl -H "Accept: application/json" \
+  https://sheurich.github.io/debian-repro/data/latest.json</code></pre>
+
+      <h3>Download CSV for Analysis</h3>
+      <pre><code>curl -o verification-data.csv \
+  https://sheurich.github.io/debian-repro/data/latest.csv</code></pre>
+
+      <h3>Parse with jq</h3>
+      <pre><code># Get reproducibility rate
+curl -s https://sheurich.github.io/debian-repro/data/latest.json | \
+  jq '[.architectures[].suites[] | select(.reproducible)] | length'
+
+# List all reproducible suites for amd64
+curl -s https://sheurich.github.io/debian-repro/data/latest.json | \
+  jq '.architectures.amd64.suites | to_entries[] | select(.value.reproducible) | .key'
+
+# Extract build times
+curl -s https://sheurich.github.io/debian-repro/data/latest.json | \
+  jq '.architectures[].suites[] | .build_time_seconds' | \
+  awk '{sum+=$1; count++} END {print "Avg:", sum/count}'</code></pre>
+
+      <h3>Python Example</h3>
+      <pre><code>import requests
+import pandas as pd
+
+# Fetch JSON data
+response = requests.get('https://sheurich.github.io/debian-repro/data/latest.json')
+data = response.json()
+
+# Or load CSV directly into pandas
+df = pd.read_csv('https://sheurich.github.io/debian-repro/data/latest.csv')
+
+# Calculate reproducibility rate
+rate = df['reproducible'].sum() / len(df) * 100
+print(f"Reproducibility rate: {rate:.1f}%")</code></pre>
+
+      <h3>JavaScript Example</h3>
+      <pre><code>// Fetch and parse JSON
+fetch('https://sheurich.github.io/debian-repro/data/latest.json')
+  .then(response => response.json())
+  .then(data => {
+    console.log('Serial:', data.serial);
+    console.log('Architectures:', Object.keys(data.architectures));
+
+    // Calculate stats
+    let total = 0, reproducible = 0;
+    Object.values(data.architectures).forEach(arch => {
+      Object.values(arch.suites).forEach(suite => {
+        total++;
+        if (suite.reproducible) reproducible++;
+      });
+    });
+    console.log(`Rate: ${(reproducible/total*100).toFixed(1)}%`);
+  });</code></pre>
+    </section>
+
+    <!-- Rate Limits -->
+    <section id="rate-limits">
+      <h2>Rate Limits</h2>
+      <p>
+        All endpoints are served as static files via GitHub Pages. There are no explicit rate limits,
+        but please be considerate:
+      </p>
+      <ul>
+        <li>Data updates weekly, so polling more frequently than once per day is unnecessary</li>
+        <li>Cache responses appropriately (files include cache headers)</li>
+        <li>For high-volume usage, consider cloning the repository and serving data locally</li>
+      </ul>
+      <p>
+        <strong>Recommended:</strong> Check <code>If-Modified-Since</code> header to avoid unnecessary downloads.
+      </p>
+    </section>
+
+    <!-- Support -->
+    <section>
+      <h2>Support</h2>
+      <p>
+        Questions or issues? Please <a href="https://github.com/sheurich/debian-repro/issues">open an issue</a>
+        on GitHub.
+      </p>
+      <p>
+        For CI/CD integration examples, see the
+        <a href="https://github.com/sheurich/debian-repro/tree/main/.github/workflows">workflows directory</a>.
+      </p>
+    </section>
+  </main>
+
+  <footer>
+    <p>
+      Data: <a href="https://github.com/sheurich/debian-repro">sheurich/debian-repro</a> |
+      Tool: <a href="https://github.com/debuerreotype/debuerreotype">Debuerreotype</a> |
+      <a href="index.html">Back to Dashboard</a>
+    </p>
+  </footer>
+</body>
+</html>
