@@ -7,13 +7,13 @@
 
 ## Project Purpose
 
-This repository verifies the reproducibility of official Debian Docker images by rebuilding them with Debuerreotype and comparing SHA256 checksums. The goal is to prove that official Debian images on Docker Hub can be recreated bit-for-bit.
+This repository verifies official Debian Docker images by rebuilding them with Debuerreotype and comparing SHA256 checksums. We prove that Debian images on Docker Hub can be recreated bit-for-bit.
 
 ## Architecture
 
 **Dual CI System:**
-- **Google Cloud Build** (`cloudbuild.yaml`): Production-grade builds with E2_HIGHCPU_8 machines
-- **GitHub Actions** (`.github/workflows/reproducible-debian-build.yml`): Automated weekly verification and manual triggers
+- **Google Cloud Build** (`cloudbuild.yaml`)
+- **GitHub Actions** (`.github/workflows/reproducible-debian-build.yml`)
 
 **Core Tool:**
 - Debuerreotype v0.16 (official Docker Hub Debian image builder)
@@ -27,16 +27,30 @@ This repository verifies the reproducibility of official Debian Docker images by
 
 ## Quick Start
 
-### Local Verification (One Command)
+### Local Verification
+
+Runs on macOS and Linux with **automatic** multi-architecture support.
 
 ```bash
 # Clone and run
 git clone https://github.com/sheurich/debian-repro.git
 cd debian-repro
 ./verify-local.sh
+
+# Cross-architecture builds (auto-setup if needed)
+./verify-local.sh --arch amd64   # Build AMD64 on Apple Silicon Mac
+./verify-local.sh --arch arm64   # Build ARM64 on Intel Mac
+
+# Parallel multi-suite builds
+./verify-local.sh --parallel --suites "bookworm trixie bullseye"
+
+# Parallel cross-architecture builds (auto-setup!)
+./verify-local.sh --parallel --suites "bookworm trixie bullseye" --arch amd64
 ```
 
-For detailed local setup instructions, see **[docs/local-setup.md](docs/local-setup.md)**.
+**Cross-architecture emulation is automatically configured** when needed. The script detects missing architectures and installs binfmt support using QEMU.
+
+See **[docs/local-setup.md](docs/local-setup.md)** for setup details and troubleshooting.
 
 ## Common Commands
 
@@ -89,7 +103,8 @@ sha256sum output/20251020/amd64/bookworm/rootfs.tar.xz
 **Supported Architectures:** amd64, arm64, armhf, i386, ppc64el, s390x
 
 **Supported Suites:**
-- `trixie` (testing/stable)
+- `forky` (testing)
+- `trixie` (stable)
 - `bookworm` (oldstable)
 - `bullseye` (oldoldstable)
 - `unstable` (sid)
@@ -127,8 +142,8 @@ Debuerreotype ensures bit-for-bit reproducibility through:
 - Deterministic tar: Sorted files, numeric owners
 - Fixup process: Removes logs, machine IDs, variable content
 
-The timestamp from official builds MUST be used exactly - this is the single most critical parameter for reproducibility.
+Use the exact timestamp from official builds - this is the single most critical parameter for reproducibility.
 
 ## Documentation
 
-See [`docs/debuerreotype-guide.md`](docs/debuerreotype-guide.md) for detailed step-by-step instructions on using Debuerreotype and verifying builds.
+See [`docs/debuerreotype-guide.md`](docs/debuerreotype-guide.md) for step-by-step instructions on using Debuerreotype and verifying builds.

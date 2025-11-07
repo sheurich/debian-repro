@@ -27,6 +27,51 @@ detect_native_arch() {
   esac
 }
 
+# Get supported architectures from Docker/buildx
+detect_supported_architectures() {
+  local platforms
+
+  # Try to get platforms from default buildx builder
+  if platforms=$(docker buildx inspect 2>/dev/null | grep "Platforms:" | head -1); then
+    # Parse platforms line: "Platforms: linux/arm64, linux/amd64, linux/386"
+    # Extract just the architecture part after "linux/"
+    echo "$platforms" | sed 's/.*Platforms: *//' | tr ',' '\n' | sed 's|linux/||g' | sed 's|/.*||g' | tr '\n' ' ' | sed 's/ *$//'
+  else
+    # Fallback: assume only native architecture is supported
+    detect_native_arch
+  fi
+}
+
+# Verify if target architecture is supported
+verify_architecture_support() {
+  local target_arch="$1"
+  local supported_archs="$2"
+
+  # Check if target is in supported list
+  for arch in $supported_archs; do
+    if [ "$arch" = "$target_arch" ]; then
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+# Detect Docker environment
+get_docker_environment() {
+  local docker_context
+  docker_context=$(docker context show 2>/dev/null || echo "unknown")
+
+  # Check for specific environments
+  if [ "$docker_context" = "colima" ] || [ -S "$HOME/.colima/docker.sock" ]; then
+    echo "colima"
+  elif [ "$docker_context" = "orbstack" ] || [ -S "$HOME/.orbstack/run/docker.sock" ]; then
+    echo "orbstack"
+  else
+    echo "docker"
+  fi
+}
+
 # Default configuration
 ARCH="${ARCH:-$(detect_native_arch)}"
 SUITES="${SUITES:-bookworm trixie}"
@@ -89,27 +134,107 @@ check_prerequisites() {
     exit 1
   fi
 
-  # Warn about cross-architecture builds on macOS
-  local host_arch native_arch os_name
-  host_arch=$(uname -m)
-  os_name=$(uname -s)
+  # Detect architectures and verify support
+  local native_arch supported_archs docker_env os_name
   native_arch=$(detect_native_arch)
+  supported_archs=$(detect_supported_architectures)
+  docker_env=$(get_docker_environment)
+  os_name=$(uname -s)
 
-  if [ "$os_name" = "Darwin" ] && [ "$ARCH" != "$native_arch" ]; then
-    log_warn "$COMPONENT" "Cross-architecture builds on macOS may fail due to Rosetta limitations"
-    log_warn "$COMPONENT" "Current arch: $ARCH, Native arch: $native_arch"
-    log_warn "$COMPONENT" "For best results, use --arch $native_arch or run on Linux"
+  log_debug "$COMPONENT" "Native arch: $native_arch"
+  log_debug "$COMPONENT" "Supported architectures: $supported_archs"
+  log_debug "$COMPONENT" "Docker environment: $docker_env"
 
-    # Give user a chance to abort
-    log_info "$COMPONENT" "Continuing in 3 seconds... (Ctrl+C to abort)"
-    sleep 3
+  # Check if cross-architecture build is needed
+  if [ "$ARCH" != "$native_arch" ]; then
+    # Verify target architecture is supported
+    if ! verify_architecture_support "$ARCH" "$supported_archs"; then
+      log_warn "$COMPONENT" "Architecture '$ARCH' not detected in supported list"
+      log_info "$COMPONENT" "Attempting to automatically enable $ARCH emulation..."
+
+      # Try to install binfmt for this architecture
+      local install_output
+      install_output=$(mktemp)
+
+      if docker run --privileged --rm tonistiigi/binfmt --install "$ARCH" > "$install_output" 2>&1; then
+        # Check if installation was successful
+        if grep -q "installing:.*OK\|already registered" "$install_output"; then
+          log_debug "$COMPONENT" "binfmt installation completed"
+
+          # Verify installation worked by querying binfmt directly (buildx caches platform detection)
+          local binfmt_check
+          binfmt_check=$(docker run --privileged --rm tonistiigi/binfmt 2>/dev/null)
+
+          # Check if target architecture is in the supported list from binfmt
+          if echo "$binfmt_check" | jq -r '.supported[]?' 2>/dev/null | grep -q "linux/$ARCH"; then
+            log_info "$COMPONENT" "✓ Successfully enabled $ARCH emulation"
+            rm -f "$install_output"
+
+            # Update supported_archs for the rest of the script
+            # Note: buildx may still show old list until recreated, but binfmt works
+            supported_archs="$supported_archs $ARCH"
+          else
+            log_error "$COMPONENT" "✗ Installation appeared successful but $ARCH still not detected"
+            log_debug "$COMPONENT" "binfmt output: $binfmt_check"
+            rm -f "$install_output"
+            # Fall through to error handling below
+          fi
+        else
+          log_warn "$COMPONENT" "binfmt installation did not report success"
+          rm -f "$install_output"
+          # Fall through to error handling below
+        fi
+      else
+        log_warn "$COMPONENT" "Unable to automatically install binfmt (requires --privileged access)"
+        rm -f "$install_output"
+        # Fall through to error handling below
+      fi
+
+      # Final check - if still not supported, show detailed error
+      if ! verify_architecture_support "$ARCH" "$supported_archs"; then
+        log_error "$COMPONENT" "Architecture '$ARCH' is not supported by your Docker environment"
+        log_error "$COMPONENT" "Supported architectures: $supported_archs"
+        log_error "$COMPONENT" ""
+
+        # Provide environment-specific guidance
+        case "$docker_env" in
+          colima)
+            log_error "$COMPONENT" "To enable cross-architecture builds with Colima:"
+            log_error "$COMPONENT" "1. Edit ~/.colima/default/colima.yaml and set 'binfmt: true'"
+            log_error "$COMPONENT" "2. Restart: colima stop && colima start"
+            log_error "$COMPONENT" "3. Manually run: docker run --privileged --rm tonistiigi/binfmt --install all"
+            ;;
+          docker-desktop)
+            log_error "$COMPONENT" "To enable cross-architecture builds with Docker Desktop:"
+            log_error "$COMPONENT" "1. Open Docker Desktop settings"
+            log_error "$COMPONENT" "2. Enable 'Use Virtualization Framework' (disable Rosetta if enabled)"
+            log_error "$COMPONENT" "3. Restart Docker Desktop"
+            log_error "$COMPONENT" "4. Manually run: docker run --privileged --rm tonistiigi/binfmt --install all"
+            ;;
+          orbstack)
+            log_error "$COMPONENT" "OrbStack should support multi-architecture by default"
+            log_error "$COMPONENT" "Try manually: docker run --privileged --rm tonistiigi/binfmt --install all"
+            ;;
+          *)
+            log_error "$COMPONENT" "To enable cross-architecture builds:"
+            log_error "$COMPONENT" "Install qemu-user-static or enable binfmt support"
+            log_error "$COMPONENT" "Run: docker run --privileged --rm tonistiigi/binfmt --install all"
+            ;;
+        esac
+
+        exit 1
+      fi
+    else
+      # Architecture is already supported - log informational message
+      log_info "$COMPONENT" "Cross-architecture build: $native_arch → $ARCH (using emulation)"
+    fi
   fi
 
-  # Check QEMU for non-native architectures on Linux
+  # Setup QEMU on Linux if needed (for compatibility)
   if [ "$os_name" = "Linux" ] && [ "$ARCH" != "$native_arch" ]; then
-    log_info "$COMPONENT" "Setting up QEMU for $ARCH emulation..."
+    log_debug "$COMPONENT" "Setting up QEMU for $ARCH emulation on Linux..."
     if ! docker run --rm --privileged multiarch/qemu-user-static --reset -p yes >/dev/null 2>&1; then
-      log_warn "$COMPONENT" "QEMU setup may have failed, proceeding anyway..."
+      log_debug "$COMPONENT" "QEMU setup command failed (may already be configured)"
     fi
   fi
 }

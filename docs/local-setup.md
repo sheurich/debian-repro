@@ -1,6 +1,6 @@
 # Local Setup Guide
 
-Run Debian reproducibility verification locally without CI/CD.
+Verify Debian reproducibility locally without CI/CD.
 
 ## Prerequisites
 
@@ -25,9 +25,34 @@ docker run hello-world
 
 # Linux: Add user to docker group
 sudo usermod -aG docker $USER && newgrp docker
-
-# macOS: Ensure Docker Desktop is running
 ```
+
+#### macOS with Colima
+
+Colima defaults enable cross-architecture builds:
+- Default: `rosetta: false` and `binfmt: true` (optimal for multi-arch)
+- Works with both `vmType: qemu` (default) or `vmType: vz`
+
+```bash
+# Install Colima
+brew install colima
+
+# Start with defaults (configured for cross-architecture builds)
+colima start --cpu 4 --memory 8
+
+# One-time binfmt setup (run after colima start)
+docker run --rm --privileged tonistiigi/binfmt --install all
+
+# Verify multi-architecture support
+docker run --rm amd64/alpine uname -m    # Should output: x86_64
+docker run --rm arm64v8/alpine uname -m  # Should output: aarch64
+```
+
+**Important:** Keep Colima's default `rosetta: false` setting. Rosetta conflicts with QEMU-based cross-architecture builds.
+
+#### macOS with Docker Desktop
+
+Docker Desktop supports cross-architecture builds. Colima provides more reliable multi-arch support.
 
 ### Optional Tools
 
@@ -155,21 +180,71 @@ echo "✅ All suites verified!"
 
 ### Multi-Architecture Builds
 
+Cross-architecture builds now work automatically! The `verify-local.sh` script detects when you're building for a non-native architecture and automatically installs the required emulation support if needed.
+
+#### Automatic Setup (All Platforms)
+
+Simply specify the architecture you want:
+
 ```bash
-# ARM64 requires QEMU on x86_64
+# Build for any supported architecture
+# Auto-setup happens if needed
+./verify-local.sh --arch amd64   # AMD64 on Apple Silicon or linux/arm64
+./verify-local.sh --arch arm64   # ARM64 on Intel Mac or linux/amd64
+./verify-local.sh --arch armhf   # On any system
+```
+
+**How it works:**
+1. Script detects your target architecture isn't natively supported
+2. Automatically attempts to install binfmt emulation
+3. Verifies emulation is working
+4. Proceeds with build if successful
+5. Shows helpful error messages if auto-setup fails
+
+**Tested Examples (macOS with Colima/OrbStack on Apple Silicon):**
+```bash
+# Parallel multi-suite builds (native architecture)
+./verify-local.sh --parallel --suites "bookworm trixie bullseye"
+
+# Parallel multi-suite builds (cross-architecture)
+./verify-local.sh --parallel --suites "bookworm trixie bullseye" --arch amd64
+```
+
+Both commands work reliably on Apple Silicon Macs with Colima v0.9.1+
+and OrbStack v2.0.4+.
+
+#### Manual Setup (Optional)
+
+If automatic setup doesn't work or you prefer manual control:
+
+**macOS (Colima):**
+```bash
+# Ensure binfmt is enabled in Colima config
+# ~/.colima/default/colima.yaml should have:
+# binfmt: true
+# rosetta: false
+
+# Restart Colima
+colima stop && colima start
+
+# Manually install all architectures
+docker run --rm --privileged tonistiigi/binfmt --install all
+```
+
+**Linux:**
+```bash
+# Install QEMU user-mode emulation
 docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
 
-# Build for ARM64
-./scripts/fetch-official.sh --arch arm64 --output-dir ./official-arm64
-EPOCH=$(cat ./official-arm64/epoch.txt)
-
-./scripts/build-suite.sh \
-  --suite bookworm \
-  --arch arm64 \
-  --epoch "$EPOCH" \
-  --output-dir ./output \
-  --image debuerreotype:0.16
+# Or install system packages
+sudo apt-get install qemu-user-static binfmt-support
 ```
+
+**Docker Desktop:**
+- Enable "Use Virtualization Framework" in settings
+- **Disable** Rosetta for x86_64 emulation (causes /proc/self/exe errors)
+- Restart Docker Desktop
+- Let verify-local.sh auto-install binfmt on first cross-arch build
 
 ### Parallel Builds
 
@@ -259,14 +334,11 @@ yamllint .github/workflows/ cloudbuild.yaml
 ```bash
 # Linux
 sudo usermod -aG docker $USER && newgrp docker
-
-# macOS
-open -a Docker  # Start Docker Desktop
 ```
 
-### Build Fails: SYS_ADMIN Required
+### Build Fails: Requires SYS_ADMIN
 
-Debuerreotype needs elevated privileges. The scripts handle this automatically. If running Docker manually:
+Debuerreotype requires elevated privileges. Scripts handle this automatically. If running Docker manually:
 
 ```bash
 docker run \
@@ -303,14 +375,78 @@ docker system prune -a
 rm -rf ./output/*
 ```
 
-### ARM64 Builds Fail on x86_64
+### Cross-Architecture Build Issues
+
+#### Architecture Not Detected
+
+**Symptoms:**
+- Error: `Architecture 'amd64' is not supported by your Docker environment`
+- Script shows supported architectures but target is missing
+
+**Solution:**
+The `verify-local.sh` script now **automatically attempts** to install binfmt emulation when it detects a missing architecture. If auto-setup fails, follow the manual steps for your environment:
+
+**macOS (Colima):**
+```bash
+# Ensure correct configuration
+cat ~/.colima/default/colima.yaml | grep -E "(rosetta|binfmt)"
+# Should show: rosetta: false, binfmt: true
+
+# If configuration is wrong, recreate Colima
+colima stop
+colima delete
+colima start  # Defaults: rosetta: false, binfmt: true
+
+# Manually install binfmt
+docker run --rm --privileged tonistiigi/binfmt --install all
+```
+
+#### Rosetta Errors (macOS)
+
+**Symptoms:**
+- Error: `rosetta error: Unable to open /proc/self/exe: 40`
+- Error: `Trace/breakpoint trap (core dumped)`
+- Build succeeds initially but fails during package installation
+
+**Cause:** Rosetta enabled in Colima (conflicts with certain build operations)
+
+**Solution:**
+```bash
+# Check if Rosetta is enabled
+cat ~/.colima/default/colima.yaml | grep rosetta
+
+# If rosetta: true, disable it
+colima stop
+# Edit ~/.colima/default/colima.yaml and set: rosetta: false
+colima start
+
+# Or recreate with correct defaults
+colima delete
+colima start  # Defaults include rosetta: false
+```
+
+**Why disable Rosetta?** While Rosetta provides fast x86_64 emulation for macOS, it has known issues accessing `/proc/self/exe` during certain build operations, causing cryptic failures. QEMU (via binfmt) is more compatible with Docker builds.
+
+#### Linux: Cross-Architecture Setup
 
 ```bash
-# Install QEMU
+# Install QEMU user-mode emulation
 docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
 
 # Verify
 docker run --rm arm64v8/alpine uname -m  # Should output: aarch64
+docker run --rm amd64/alpine uname -m    # Should output: x86_64
+```
+
+#### Architecture Not Supported
+
+**Symptom:** `Architecture 'X' is not supported by your Docker environment`
+
+**Solution:** The verify-local.sh script provides environment-specific guidance. Install binfmt:
+
+```bash
+# For macOS (Colima), Docker Desktop, or Linux
+docker run --rm --privileged tonistiigi/binfmt --install all
 ```
 
 ## Directory Structure
