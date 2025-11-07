@@ -29,7 +29,7 @@ Outputs (in output-dir):
   - last-verified.json       Last verification date badge
 
 Examples:
-  $0 --report ./report.json --output-dir ./docs/badges
+  $0 --report ./report.json --output-dir ./dashboard/badges
 EOF
 }
 

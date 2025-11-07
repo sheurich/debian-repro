@@ -1,0 +1,11 @@
+{
+  "timestamp": "2025-11-07T00:00:00Z",
+  "run_id": "initial",
+  "serial": "pending",
+  "epoch": 0,
+  "environment": {
+    "platform": "pending",
+    "runner": "pending"
+  },
+  "architectures": {}
+}

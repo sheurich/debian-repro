@@ -62,12 +62,16 @@ The official Debian image builder requires:
 
 ### Public Dashboard
 
+**Location:** `https://sheurich.github.io/debian-repro/`
+
 GitHub Pages hosts:
 - Reproducibility status matrix
 - 30-day historical trends
 - Architecture breakdowns
 - Status badges
 - Mobile-responsive interface
+
+**Configuration:** GitHub Pages must be configured to serve from the `/dashboard` directory on the main branch. The dashboard automatically updates after each CI run via the `update-dashboard` workflow job.
 
 ## Verification Process
 
@@ -130,9 +134,13 @@ Each day the system:
 ├── .github/workflows/  # CI/CD workflows
 ├── scripts/            # Verification scripts
 ├── tests/              # Test suites
-├── docs/               # Dashboard and documentation
+├── docs/               # Documentation guides
+├── dashboard/          # Web dashboard (GitHub Pages)
 │   ├── badges/         # Status endpoints
-│   └── data/           # Historical data
+│   ├── data/           # Historical data
+│   ├── index.html      # Dashboard interface
+│   ├── script.js       # Dashboard logic
+│   └── style.css       # Dashboard styling
 ├── cloudbuild.yaml     # Cloud Build config
 └── verify-local.sh     # Local entry point
 ```

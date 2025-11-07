@@ -125,10 +125,11 @@ sha256sum output/20251020/amd64/bookworm/rootfs.tar.xz
 5. Verify reproducibility against official checksums
 6. Create OCI images
 
-**GitHub Actions (3 jobs):**
+**GitHub Actions (4 jobs):**
 1. `fetch-official`: Download official parameters and checksums
 2. `build`: Matrix job for each architecture (uses QEMU for ARM)
 3. `summary`: Generate markdown report with verification results
+4. `update-dashboard`: Update dashboard data and badges from build results
 
 **Scheduling:**
 - Automated weekly runs: Sundays at 00:00 UTC

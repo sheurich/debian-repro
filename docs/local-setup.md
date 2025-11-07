@@ -286,6 +286,9 @@ sudo apt-get install qemu-user-static binfmt-support
 ./scripts/generate-badges.sh \
   --report ./report.json \
   --output-dir ./badges
+
+# Note: Use ./badges for local testing
+# CI workflow uses ./dashboard/badges for GitHub Pages deployment
 ```
 
 ## Debug Mode
@@ -455,7 +458,8 @@ docker run --rm --privileged tonistiigi/binfmt --install all
 debian-repro/
 ├── scripts/           # Verification scripts
 ├── tests/            # BATS test suite
-├── docs/             # Documentation and dashboard
+├── docs/             # Documentation guides
+├── dashboard/        # Web dashboard (GitHub Pages)
 ├── debuerreotype/    # Cloned tool (local only)
 ├── output/           # Build artifacts (gitignored)
 ├── official-*/       # Official parameters (gitignored)

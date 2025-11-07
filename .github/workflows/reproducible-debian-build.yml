@@ -321,7 +321,7 @@
       needs: [fetch-official, build]
       runs-on: ubuntu-24.04
       if: always()
-      
+
       steps:
         - name: Generate final report
           run: |
@@ -330,9 +330,190 @@
             echo "**Serial**: ${{ needs.fetch-official.outputs.serial }}" >> $GITHUB_STEP_SUMMARY
             echo "**Debuerreotype**: ${{ env.DEBUERREOTYPE_VERSION }}" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-            
+
             if [ "${{ needs.build.result }}" = "success" ]; then
               echo "## ✅ All builds are reproducible!" >> $GITHUB_STEP_SUMMARY
             else
               echo "## ❌ Some builds failed reproducibility check" >> $GITHUB_STEP_SUMMARY
             fi
+
+  update-dashboard:
+    name: Update Dashboard
+    needs: [fetch-official, build]
+    runs-on: ubuntu-24.04
+    if: always() && github.event_name != 'pull_request'
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955  # v4.3.0
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16  # v4.1.8
+        with:
+          path: artifacts/
+
+      - name: Create results directory
+        run: mkdir -p results
+
+      - name: Process build artifacts and generate JSON results
+        run: |
+          set -Eeuo pipefail
+
+          SERIAL="${{ needs.fetch-official.outputs.serial }}"
+          SUITES="${{ github.event.inputs.suites || 'bookworm trixie' }}"
+
+          # Process each architecture artifact
+          for artifact_dir in artifacts/debian-*; do
+            if [ ! -d "$artifact_dir" ]; then continue; fi
+
+            # Extract architecture from artifact name (format: debian-{arch}-{serial})
+            artifact_name=$(basename "$artifact_dir")
+            arch=$(echo "$artifact_name" | sed 's/^debian-//' | sed "s/-$SERIAL$//")
+
+            echo "Processing architecture: $arch"
+
+            # Get official checksums for this architecture
+            official_dir="official-$arch"
+            if [ ! -d "$official_dir" ]; then
+              echo "Warning: No official checksums directory for $arch"
+              continue
+            fi
+
+            # Process each suite
+            for suite in $SUITES; do
+              echo "  Processing suite: $suite"
+
+              # Path to our build
+              our_file="$artifact_dir/$SERIAL/"*"/$suite/rootfs.tar.xz"
+
+              if [ ! -f $our_file ]; then
+                echo "    Warning: Build file not found: $our_file"
+                # Create failed result
+                jq -n \
+                  --arg suite "$suite" \
+                  '{
+                    reproducible: false,
+                    sha256: "build-failed",
+                    build_time_seconds: 0,
+                    error: "Build file not found"
+                  }' > "results/${arch}-${suite}.json"
+                continue
+              fi
+
+              # Compute our SHA256
+              our_sha256=$(sha256sum $our_file | cut -d' ' -f1)
+
+              # Get official SHA256
+              official_file="$official_dir/$suite/rootfs.tar.xz.sha256"
+              if [ -f "$official_file" ]; then
+                official_sha256=$(cut -d' ' -f1 < "$official_file")
+
+                if [ "$our_sha256" = "$official_sha256" ]; then
+                  echo "    ✅ Reproducible"
+                  reproducible=true
+                else
+                  echo "    ❌ Not reproducible"
+                  reproducible=false
+                fi
+              else
+                echo "    ⚠️ Official checksum not found"
+                official_sha256="not-available"
+                reproducible=false
+              fi
+
+              # Create JSON result file
+              jq -n \
+                --arg sha "$our_sha256" \
+                --arg official "$official_sha256" \
+                --argjson repro "$reproducible" \
+                '{
+                  reproducible: $repro,
+                  sha256: $sha,
+                  official_sha256: $official,
+                  build_time_seconds: 0
+                }' > "results/${arch}-${suite}.json"
+            done
+          done
+
+          # List results for debugging
+          echo "Generated result files:"
+          ls -la results/
+
+      - name: Checkout official artifacts for verification
+        run: |
+          set -Eeuo pipefail
+
+          # Get list of architectures from inputs
+          IFS=',' read -ra ARCHS <<< "${{ github.event.inputs.architectures || 'amd64,arm64' }}"
+
+          for arch in "${ARCHS[@]}"; do
+            arch=$(echo "$arch" | xargs)  # trim whitespace
+
+            # Map architecture to artifacts branch
+            case "$arch" in
+              amd64) artifacts_branch="dist-amd64" ;;
+              arm64) artifacts_branch="dist-arm64v8" ;;
+              armhf) artifacts_branch="dist-arm32v7" ;;
+              i386) artifacts_branch="dist-i386" ;;
+              ppc64el) artifacts_branch="dist-ppc64le" ;;
+              *) continue ;;
+            esac
+
+            echo "Cloning official artifacts for $arch (branch: $artifacts_branch)"
+            git clone --depth 1 --branch "$artifacts_branch" \
+              https://github.com/debuerreotype/docker-debian-artifacts.git \
+              "official-$arch"
+          done
+
+      - name: Capture environment
+        run: |
+          ./scripts/capture-environment.sh --output results/environment.json
+
+      - name: Generate report
+        run: |
+          ./scripts/generate-report.sh \
+            --results-dir results \
+            --output report.json \
+            --run-id "${{ github.run_id }}" \
+            --serial "${{ needs.fetch-official.outputs.serial }}" \
+            --epoch "${{ needs.fetch-official.outputs.epoch }}"
+
+      - name: Update dashboard data
+        run: |
+          set -Eeuo pipefail
+
+          # Copy to latest.json
+          cp report.json dashboard/data/latest.json
+
+          # Append to history (keep last 90 entries)
+          jq -s '.[0] + [.[1]] | sort_by(.timestamp) | .[-90:]' \
+            dashboard/data/history.json report.json > dashboard/data/history.tmp
+          mv dashboard/data/history.tmp dashboard/data/history.json
+
+          echo "Dashboard data updated successfully"
+
+      - name: Generate badges
+        run: |
+          ./scripts/generate-badges.sh \
+            --report report.json \
+            --output-dir dashboard/badges
+
+      - name: Commit and push dashboard updates
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add dashboard/data/ dashboard/badges/
+
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Update dashboard data from build ${{ github.run_id }}
+
+Serial: ${{ needs.fetch-official.outputs.serial }}
+Epoch: ${{ needs.fetch-official.outputs.epoch }}
+Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            git push
+          fi
