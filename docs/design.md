@@ -71,7 +71,7 @@ GitHub Pages hosts:
 - Status badges
 - Mobile-responsive interface
 
-**Configuration:** GitHub Pages must be configured to serve from the `/dashboard` directory on the main branch. The dashboard automatically updates after each CI run via the `update-dashboard` workflow job.
+**Configuration:** GitHub Pages uses GitHub Actions as the publishing source. The `pages.yml` workflow automatically deploys the `/dashboard` directory after each update. The dashboard data updates after each CI run via the `update-dashboard` workflow job.
 
 ## Verification Process
 

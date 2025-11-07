@@ -14,7 +14,7 @@ The dashboard provides a web-based interface showing:
 
 ## Configuring GitHub Pages
 
-The dashboard requires GitHub Pages to be configured to serve from the `/dashboard` directory.
+The dashboard uses GitHub Actions as the publishing source. Deployment happens automatically via the `.github/workflows/pages.yml` workflow.
 
 ### Setup Steps
 
@@ -22,19 +22,22 @@ The dashboard requires GitHub Pages to be configured to serve from the `/dashboa
    - Go to https://github.com/sheurich/debian-repro/settings/pages
 
 2. **Configure Source**
-   - **Source:** Deploy from a branch
-   - **Branch:** `main`
-   - **Directory:** `/dashboard` (not `/docs`)
+   - **Source:** GitHub Actions
    - Click **Save**
 
 3. **Verify Deployment**
-   - Wait 1-2 minutes for initial deployment
+   - The workflow triggers automatically on push to main when `dashboard/` files change
+   - Check the Actions tab for the "Deploy Pages" workflow
+   - Wait 1-2 minutes for deployment to complete
    - Visit https://sheurich.github.io/debian-repro/
    - You should see the reproducibility dashboard with current data
 
 ### First-Time Setup
 
-If this is the first GitHub Pages deployment for the repository, the page may show placeholder data until the first CI run completes.
+On first deployment:
+- The `github-pages` environment is created automatically
+- The page may show placeholder data until the first verification run completes
+- Manual trigger available: Go to Actions → Deploy Pages → Run workflow
 
 ## How Dashboard Updates Work
 
@@ -54,7 +57,7 @@ The dashboard automatically updates after each verification run through the GitH
    - Appends to `dashboard/data/history.json` (keeps last 90 entries)
    - Runs `generate-badges.sh` to regenerate all badge endpoints
    - Commits and pushes changes to repository
-4. **GitHub Pages Deployment** - Automatically triggered by commit
+4. **GitHub Pages Deployment** - The `pages.yml` workflow triggers on push to main when `dashboard/` files change, builds and deploys to Pages
 
 ### Update Frequency
 
