@@ -63,17 +63,21 @@
             SNAPSHOT_URL="http://snapshot.debian.org/archive/debian/${SERIAL}T000000Z"
 
             # Output parameters
-            echo "serial=$SERIAL" >> $GITHUB_OUTPUT
-            echo "epoch=$EPOCH" >> $GITHUB_OUTPUT
-            echo "timestamp=@$EPOCH" >> $GITHUB_OUTPUT
-            echo "snapshot_url=$SNAPSHOT_URL" >> $GITHUB_OUTPUT
+            {
+              echo "serial=$SERIAL"
+              echo "epoch=$EPOCH"
+              echo "timestamp=@$EPOCH"
+              echo "snapshot_url=$SNAPSHOT_URL"
+            } >> "$GITHUB_OUTPUT"
 
             # Create summary
-            echo "### Official Build Parameters" >> $GITHUB_STEP_SUMMARY
-            echo "- **Serial**: $SERIAL" >> $GITHUB_STEP_SUMMARY
-            echo "- **Epoch**: $EPOCH" >> $GITHUB_STEP_SUMMARY
-            echo "- **Timestamp**: @$EPOCH" >> $GITHUB_STEP_SUMMARY
-            echo "- **Snapshot**: $SNAPSHOT_URL" >> $GITHUB_STEP_SUMMARY
+            {
+              echo "### Official Build Parameters"
+              echo "- **Serial**: $SERIAL"
+              echo "- **Epoch**: $EPOCH"
+              echo "- **Timestamp**: @$EPOCH"
+              echo "- **Snapshot**: $SNAPSHOT_URL"
+            } >> "$GITHUB_STEP_SUMMARY"
 
         - name: Setup build matrix
           id: matrix
@@ -134,7 +138,7 @@
             done
             MATRIX+=']}'
 
-            echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
+            echo "matrix=$MATRIX" >> "$GITHUB_OUTPUT"
 
     build:
       name: Build ${{ matrix.arch }}
@@ -218,7 +222,6 @@
           run: |
             set -Eeuo pipefail -x
 
-            SERIAL="${{ needs.fetch-official.outputs.serial }}"
             EPOCH="${{ needs.fetch-official.outputs.epoch }}"
             SUITES="${{ github.event.inputs.suites || 'bookworm trixie' }}"
 
@@ -235,7 +238,7 @@
               --env TZ=UTC \
               --env SOURCE_DATE_EPOCH="$EPOCH" \
               --env TMPDIR=/tmp \
-              --volume $PWD/output:/output \
+              --volume "$PWD/output":/output \
               debuerreotype:${{ env.DEBUERREOTYPE_VERSION }} \
               sh -c "
                 set -ex
@@ -260,17 +263,19 @@
             ARCH="${{ matrix.arch }}"
             DPKG_ARCH="${{ matrix.dpkg_arch }}"
 
-            echo "## Reproducibility Report ($ARCH)" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
+            {
+              echo "## Reproducibility Report ($ARCH)"
+              echo ""
+            } >> "$GITHUB_STEP_SUMMARY"
 
             FAILED=0
             for suite in $SUITES; do
-              echo "### $suite" >> $GITHUB_STEP_SUMMARY
+              echo "### $suite" >> "$GITHUB_STEP_SUMMARY"
 
               # Our build
               OUR_FILE="output/$SERIAL/$DPKG_ARCH/$suite/rootfs.tar.xz"
               if [ ! -f "$OUR_FILE" ]; then
-                echo "❌ Build failed - file not found" >> $GITHUB_STEP_SUMMARY
+                echo "❌ Build failed - file not found" >> "$GITHUB_STEP_SUMMARY"
                 FAILED=1
                 continue
               fi
@@ -281,30 +286,36 @@
               OFFICIAL_FILE="official-$ARCH/$suite/rootfs.tar.xz.sha256"
               if [ -f "$OFFICIAL_FILE" ]; then
                 OFFICIAL_SHA256=$(cut -d' ' -f1 < "$OFFICIAL_FILE")
-                
+
                 if [ "$OUR_SHA256" = "$OFFICIAL_SHA256" ]; then
-                  echo "✅ **Reproducible!**" >> $GITHUB_STEP_SUMMARY
-                  echo "- SHA256: \`$OUR_SHA256\`" >> $GITHUB_STEP_SUMMARY
+                  {
+                    echo "✅ **Reproducible!**"
+                    echo "- SHA256: \`$OUR_SHA256\`"
+                  } >> "$GITHUB_STEP_SUMMARY"
                 else
-                  echo "❌ **Not reproducible**" >> $GITHUB_STEP_SUMMARY
-                  echo "- Official: \`$OFFICIAL_SHA256\`" >> $GITHUB_STEP_SUMMARY
-                  echo "- Ours: \`$OUR_SHA256\`" >> $GITHUB_STEP_SUMMARY
+                  {
+                    echo "❌ **Not reproducible**"
+                    echo "- Official: \`$OFFICIAL_SHA256\`"
+                    echo "- Ours: \`$OUR_SHA256\`"
+                  } >> "$GITHUB_STEP_SUMMARY"
                   FAILED=1
                 fi
               else
-                echo "⚠️ Official checksum not found" >> $GITHUB_STEP_SUMMARY
-                echo "- Our SHA256: \`$OUR_SHA256\`" >> $GITHUB_STEP_SUMMARY
+                {
+                  echo "⚠️ Official checksum not found"
+                  echo "- Our SHA256: \`$OUR_SHA256\`"
+                } >> "$GITHUB_STEP_SUMMARY"
               fi
-              
-              echo "" >> $GITHUB_STEP_SUMMARY
+
+              echo "" >> "$GITHUB_STEP_SUMMARY"
             done
-            
+
             if [ $FAILED -eq 0 ]; then
-              echo "✅ All builds reproducible" >> $GITHUB_STEP_SUMMARY
-              echo "success=true" >> $GITHUB_OUTPUT
+              echo "✅ All builds reproducible" >> "$GITHUB_STEP_SUMMARY"
+              echo "success=true" >> "$GITHUB_OUTPUT"
             else
-              echo "❌ Some builds not reproducible" >> $GITHUB_STEP_SUMMARY
-              echo "success=false" >> $GITHUB_OUTPUT
+              echo "❌ Some builds not reproducible" >> "$GITHUB_STEP_SUMMARY"
+              echo "success=false" >> "$GITHUB_OUTPUT"
               exit 1
             fi
         
@@ -325,16 +336,18 @@
       steps:
         - name: Generate final report
           run: |
-            echo "# Debian Reproducible Build Report" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "**Serial**: ${{ needs.fetch-official.outputs.serial }}" >> $GITHUB_STEP_SUMMARY
-            echo "**Debuerreotype**: ${{ env.DEBUERREOTYPE_VERSION }}" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
+            {
+              echo "# Debian Reproducible Build Report"
+              echo ""
+              echo "**Serial**: ${{ needs.fetch-official.outputs.serial }}"
+              echo "**Debuerreotype**: ${{ env.DEBUERREOTYPE_VERSION }}"
+              echo ""
+            } >> "$GITHUB_STEP_SUMMARY"
 
             if [ "${{ needs.build.result }}" = "success" ]; then
-              echo "## ✅ All builds are reproducible!" >> $GITHUB_STEP_SUMMARY
+              echo "## ✅ All builds are reproducible!" >> "$GITHUB_STEP_SUMMARY"
             else
-              echo "## ❌ Some builds failed reproducibility check" >> $GITHUB_STEP_SUMMARY
+              echo "## ❌ Some builds failed reproducibility check" >> "$GITHUB_STEP_SUMMARY"
             fi
 
     update-dashboard:
@@ -385,11 +398,13 @@
             for suite in $SUITES; do
               echo "  Processing suite: $suite"
 
-              # Path to our build
-              our_file="$artifact_dir/$SERIAL/"*"/$suite/rootfs.tar.xz"
+              # Path to our build (use glob to find arch directory)
+              shopt -s nullglob
+              our_files=("$artifact_dir/$SERIAL/"*"/$suite/rootfs.tar.xz")
+              shopt -u nullglob
 
-              if [ ! -f $our_file ]; then
-                echo "    Warning: Build file not found: $our_file"
+              if [ ${#our_files[@]} -eq 0 ]; then
+                echo "    Warning: Build file not found in $artifact_dir/$SERIAL/*/$suite/"
                 # Create failed result
                 jq -n \
                   --arg suite "$suite" \
@@ -402,8 +417,10 @@
                 continue
               fi
 
+              our_file="${our_files[0]}"
+
               # Compute our SHA256
-              our_sha256=$(sha256sum $our_file | cut -d' ' -f1)
+              our_sha256=$(sha256sum "$our_file" | cut -d' ' -f1)
 
               # Get official SHA256
               official_file="$official_dir/$suite/rootfs.tar.xz.sha256"
@@ -516,10 +533,9 @@
           if git diff --staged --quiet; then
             echo "No changes to commit"
           else
-            git commit -m "Update dashboard data from build ${{ github.run_id }}
-
-Serial: ${{ needs.fetch-official.outputs.serial }}
-Epoch: ${{ needs.fetch-official.outputs.epoch }}
-Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            git commit -m "Update dashboard data from build ${{ github.run_id }}" \
+              -m "Serial: ${{ needs.fetch-official.outputs.serial }}" \
+              -m "Epoch: ${{ needs.fetch-official.outputs.epoch }}" \
+              -m "Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
             git push
           fi
