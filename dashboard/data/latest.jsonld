@@ -1,0 +1,115 @@
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Dataset",
+      "@id": "https://sheurich.github.io/debian-repro/data/latest.jsonld",
+      "name": "Debian Reproducibility Verification Data",
+      "description": "Bit-for-bit verification results of official Debian Docker images using Debuerreotype",
+      "url": "https://sheurich.github.io/debian-repro/",
+      "license": "https://opensource.org/licenses/MIT",
+      "version": "20251103",
+      "dateModified": "2025-11-08T12:44:03Z",
+      "creator": {
+        "@type": "Person",
+        "name": "Shiloh Heurich",
+        "email": "sheurich@fastly.com"
+      },
+      "distribution": [
+        {
+          "@type": "DataDownload",
+          "encodingFormat": "application/json",
+          "contentUrl": "https://sheurich.github.io/debian-repro/data/latest.json",
+          "name": "JSON Report"
+        },
+        {
+          "@type": "DataDownload",
+          "encodingFormat": "text/csv",
+          "contentUrl": "https://sheurich.github.io/debian-repro/data/latest.csv",
+          "name": "CSV Export"
+        },
+        {
+          "@type": "DataDownload",
+          "encodingFormat": "application/ld+json",
+          "contentUrl": "https://sheurich.github.io/debian-repro/data/latest.jsonld",
+          "name": "JSON-LD Structured Data"
+        }
+      ],
+      "temporalCoverage": "2025-11-08T12:44:03Z",
+      "spatialCoverage": {
+        "@type": "Place",
+        "name": "Global"
+      },
+      "keywords": [
+        "debian",
+        "reproducible builds",
+        "docker",
+        "verification",
+        "debuerreotype"
+      ],
+      "variableMeasured": [
+        {
+          "@type": "PropertyValue",
+          "name": "reproducibility_rate",
+          "value": 0,
+          "unitText": "percent",
+          "description": "Percentage of suites that were reproducible"
+        },
+        {
+          "@type": "PropertyValue",
+          "name": "total_suites",
+          "value": 0,
+          "description": "Total number of suite/architecture combinations verified"
+        },
+        {
+          "@type": "PropertyValue",
+          "name": "reproducible_suites",
+          "value": 0,
+          "description": "Number of reproducible suite/architecture combinations"
+        },
+        {
+          "@type": "PropertyValue",
+          "name": "serial",
+          "value": "20251103",
+          "description": "Build serial number (YYYYMMDD format)"
+        }
+      ],
+      "measurementTechnique": "SHA256 checksum comparison of Docker image rootfs tarballs built with Debuerreotype using identical SOURCE_DATE_EPOCH timestamps",
+      "about": {
+        "@type": "Thing",
+        "name": "Reproducible Builds",
+        "url": "https://reproducible-builds.org/",
+        "description": "A set of software development practices that create an independently-verifiable path from source to binary code"
+      }
+    },
+    {
+      "@type": "SoftwareApplication",
+      "@id": "https://sheurich.github.io/debian-repro/",
+      "name": "Debian Reproducibility Verification Dashboard",
+      "applicationCategory": "DeveloperApplication",
+      "operatingSystem": "Any",
+      "softwareVersion": "2.0.0",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      },
+      "codeRepository": "https://github.com/sheurich/debian-repro",
+      "programmingLanguage": "JavaScript",
+      "author": {
+        "@type": "Person",
+        "name": "Shiloh Heurich",
+        "email": "sheurich@fastly.com"
+      },
+      "datePublished": "2025-01-01",
+      "dateModified": "2025-11-08T12:44:03Z",
+      "description": "Static dashboard for visualizing Debian Docker image reproducibility verification results",
+      "keywords": [
+        "dashboard",
+        "visualization",
+        "debian",
+        "reproducible builds"
+      ]
+    }
+  ]
+}

@@ -1,1 +1,33 @@
-[]
+[
+  {
+    "timestamp": "2025-11-08T12:44:03Z",
+    "run_id": "19193160632",
+    "serial": "20251103",
+    "epoch": 1762202650,
+    "environment": {
+      "timestamp": "2025-11-08T12:44:03Z",
+      "os": {
+        "name": "Ubuntu",
+        "version": "24.04.3 LTS (Noble Numbat)",
+        "kernel": "6.11.0-1018-azure",
+        "arch": "x86_64"
+      },
+      "docker": "Docker version 28.0.4, build b8034c0",
+      "qemu": "not installed",
+      "git": {
+        "version": "git version 2.51.2",
+        "sha": "4fcfed6094ea30508b3c24223008aa78901ab886",
+        "branch": "main"
+      },
+      "github_actions": {
+        "runner_os": "Linux",
+        "runner_name": "GitHub Actions 1000002648",
+        "runner_arch": "X64",
+        "workflow": "Reproducible Debian Build",
+        "run_id": "19193160632",
+        "run_number": "18"
+      }
+    },
+    "architectures": {}
+  }
+]
