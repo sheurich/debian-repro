@@ -337,15 +337,15 @@
               echo "## ❌ Some builds failed reproducibility check" >> $GITHUB_STEP_SUMMARY
             fi
 
-  update-dashboard:
-    name: Update Dashboard
-    needs: [fetch-official, build]
-    runs-on: ubuntu-24.04
-    if: always() && github.event_name != 'pull_request'
-    permissions:
-      contents: write
+    update-dashboard:
+      name: Update Dashboard
+      needs: [fetch-official, build]
+      runs-on: ubuntu-24.04
+      if: always() && github.event_name != 'pull_request'
+      permissions:
+        contents: write
 
-    steps:
+      steps:
       - name: Checkout repository
         uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955  # v4.3.0
 
