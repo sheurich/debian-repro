@@ -30,21 +30,25 @@ jobs:
       - name: Generate shellcheck report
         if: always()
         run: |
-          echo "## Shellcheck Results" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "## Shellcheck Results"
+            echo ""
+          } >> "$GITHUB_STEP_SUMMARY"
 
           if [ -f shellcheck.log ]; then
             issue_count=$(wc -l < shellcheck.log || echo "0")
             if [ "$issue_count" -eq 0 ]; then
-              echo "✅ No issues found!" >> $GITHUB_STEP_SUMMARY
+              echo "✅ No issues found!" >> "$GITHUB_STEP_SUMMARY"
             else
-              echo "⚠️ Found $issue_count issues:" >> $GITHUB_STEP_SUMMARY
-              echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-              cat shellcheck.log >> $GITHUB_STEP_SUMMARY
-              echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+              {
+                echo "⚠️ Found $issue_count issues:"
+                echo "\`\`\`"
+                cat shellcheck.log
+                echo "\`\`\`"
+              } >> "$GITHUB_STEP_SUMMARY"
             fi
           else
-            echo "✅ No issues found!" >> $GITHUB_STEP_SUMMARY
+            echo "✅ No issues found!" >> "$GITHUB_STEP_SUMMARY"
           fi
 
   yamllint:
@@ -90,16 +94,20 @@ jobs:
       - name: Generate yamllint report
         if: always()
         run: |
-          echo "## yamllint Results" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "## yamllint Results"
+            echo ""
+          } >> "$GITHUB_STEP_SUMMARY"
 
           if [ -s yamllint.log ]; then
-            echo "⚠️ YAML linting issues found:" >> $GITHUB_STEP_SUMMARY
-            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-            cat yamllint.log >> $GITHUB_STEP_SUMMARY
-            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            {
+              echo "⚠️ YAML linting issues found:"
+              echo "\`\`\`"
+              cat yamllint.log
+              echo "\`\`\`"
+            } >> "$GITHUB_STEP_SUMMARY"
           else
-            echo "✅ No YAML issues found!" >> $GITHUB_STEP_SUMMARY
+            echo "✅ No YAML issues found!" >> "$GITHUB_STEP_SUMMARY"
           fi
 
   summary:
@@ -111,15 +119,19 @@ jobs:
     steps:
       - name: Generate summary
         run: |
-          echo "# Lint Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "# Lint Summary"
+            echo ""
+          } >> "$GITHUB_STEP_SUMMARY"
 
           if [ "${{ needs.shellcheck.result }}" = "success" ] && \
              [ "${{ needs.yamllint.result }}" = "success" ]; then
-            echo "## ✅ All linting checks passed!" >> $GITHUB_STEP_SUMMARY
+            echo "## ✅ All linting checks passed!" >> "$GITHUB_STEP_SUMMARY"
           else
-            echo "## ❌ Some linting checks failed" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "- Shellcheck: ${{ needs.shellcheck.result }}" >> $GITHUB_STEP_SUMMARY
-            echo "- yamllint: ${{ needs.yamllint.result }}" >> $GITHUB_STEP_SUMMARY
+            {
+              echo "## ❌ Some linting checks failed"
+              echo ""
+              echo "- Shellcheck: ${{ needs.shellcheck.result }}"
+              echo "- yamllint: ${{ needs.yamllint.result }}"
+            } >> "$GITHUB_STEP_SUMMARY"
           fi

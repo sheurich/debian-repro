@@ -61,16 +61,18 @@ jobs:
 
       - name: Summary
         run: |
-          echo "## ✅ Workload Identity Federation Test Successful" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- Authenticated successfully" >> $GITHUB_STEP_SUMMARY
-          echo "- Cloud Build API accessible" >> $GITHUB_STEP_SUMMARY
-          echo "- GCS bucket accessible" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "## ✅ Workload Identity Federation Test Successful"
+            echo ""
+            echo "- Authenticated successfully"
+            echo "- Cloud Build API accessible"
+            echo "- GCS bucket accessible"
+          } >> "$GITHUB_STEP_SUMMARY"
 
   test-service-account-key:
     name: Test Service Account Key
     runs-on: ubuntu-latest
-    if: vars.GCP_WIF_PROVIDER == '' && secrets.GCP_SA_KEY != ''
+    if: vars.GCP_WIF_PROVIDER == ''
 
     steps:
       - name: Checkout
@@ -115,13 +117,15 @@ jobs:
 
       - name: Summary
         run: |
-          echo "## ✅ Service Account Key Test Successful" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- Authenticated successfully" >> $GITHUB_STEP_SUMMARY
-          echo "- Cloud Build API accessible" >> $GITHUB_STEP_SUMMARY
-          echo "- GCS bucket accessible" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "⚠️ **Note**: Consider migrating to Workload Identity Federation for better security" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "## ✅ Service Account Key Test Successful"
+            echo ""
+            echo "- Authenticated successfully"
+            echo "- Cloud Build API accessible"
+            echo "- GCS bucket accessible"
+            echo ""
+            echo "⚠️ **Note**: Consider migrating to Workload Identity Federation for better security"
+          } >> "$GITHUB_STEP_SUMMARY"
 
   test-cloud-build-submission:
     name: Test Cloud Build Submission
@@ -177,7 +181,7 @@ jobs:
             --format="value(id)" \
             --no-source)
 
-          echo "build_id=${BUILD_ID}" >> $GITHUB_OUTPUT
+          echo "build_id=${BUILD_ID}" >> "$GITHUB_OUTPUT"
           echo "Build submitted: ${BUILD_ID}"
 
       - name: Wait for build completion
@@ -186,7 +190,7 @@ jobs:
           echo "Waiting for build ${BUILD_ID} to complete..."
 
           # Wait up to 5 minutes
-          for i in {1..30}; do
+          for _ in {1..30}; do
             STATUS=$(gcloud builds describe "${BUILD_ID}" \
               --project="${GCP_PROJECT_ID}" \
               --format="value(status)")
@@ -216,10 +220,12 @@ jobs:
 
       - name: Summary
         run: |
-          echo "## ✅ Cloud Build Submission Test Successful" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- Successfully submitted build" >> $GITHUB_STEP_SUMMARY
-          echo "- Build completed successfully" >> $GITHUB_STEP_SUMMARY
-          echo "- Retrieved build artifacts from GCS" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Build ID: \`${{ steps.build.outputs.build_id }}\`" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "## ✅ Cloud Build Submission Test Successful"
+            echo ""
+            echo "- Successfully submitted build"
+            echo "- Build completed successfully"
+            echo "- Retrieved build artifacts from GCS"
+            echo ""
+            echo "Build ID: \`${{ steps.build.outputs.build_id }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"

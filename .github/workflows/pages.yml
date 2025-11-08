@@ -20,8 +20,6 @@ jobs:
   build:
     name: Build Pages
     runs-on: ubuntu-latest
-    outputs:
-      page_url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955  # v4.3.0
@@ -41,7 +39,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: github-pages
-      url: ${{ needs.build.outputs.page_url }}
+      url: ${{ steps.deployment.outputs.page_url }}
     permissions:
       contents: read
       pages: write

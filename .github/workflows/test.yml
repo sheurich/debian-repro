@@ -49,17 +49,21 @@ jobs:
       - name: Generate test report
         if: always()
         run: |
-          echo "## Test Results" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "## Test Results"
+            echo ""
+          } >> "$GITHUB_STEP_SUMMARY"
 
           if bats --formatter tap tests/unit/ tests/integration/ > test-results.tap 2>&1; then
             test_count=$(grep -c "^ok" test-results.tap || echo "0")
-            echo "✅ All $test_count tests passed!" >> $GITHUB_STEP_SUMMARY
+            echo "✅ All $test_count tests passed!" >> "$GITHUB_STEP_SUMMARY"
           else
             failed_count=$(grep -c "^not ok" test-results.tap || echo "0")
-            echo "❌ $failed_count test(s) failed" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-            grep "^not ok" test-results.tap >> $GITHUB_STEP_SUMMARY || true
-            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            {
+              echo "❌ $failed_count test(s) failed"
+              echo ""
+              echo "\`\`\`"
+              grep "^not ok" test-results.tap || true
+              echo "\`\`\`"
+            } >> "$GITHUB_STEP_SUMMARY"
           fi
