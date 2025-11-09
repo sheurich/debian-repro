@@ -524,6 +524,7 @@
             --output-dir dashboard/badges
 
       - name: Commit and push dashboard updates
+        id: push
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -532,7 +533,15 @@
 
           if git diff --staged --quiet; then
             echo "No changes to commit"
+            echo "pushed=false" >> "$GITHUB_OUTPUT"
           else
             git commit -m "Update dashboard data from build ${{ github.run_id }}" -m "Serial: ${{ needs.fetch-official.outputs.serial }}" -m "Epoch: ${{ needs.fetch-official.outputs.epoch }}" -m "Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
             git push
+            echo "pushed=true" >> "$GITHUB_OUTPUT"
           fi
+
+      - name: Trigger Pages deployment
+        if: steps.push.outputs.pushed == 'true'
+        run: gh workflow run pages.yml
+        env:
+          GH_TOKEN: ${{ github.token }}
