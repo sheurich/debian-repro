@@ -286,7 +286,7 @@ main() {
       github)
         if [ -n "$github_repo" ]; then
           if fetch_github_results "$serial" "$github_repo" "$output_dir"; then
-            ((collected_count++))
+            collected_count=$((collected_count + 1))
           fi
         else
           log_warn "$COMPONENT" "Skipping GitHub: no repository specified"
@@ -295,7 +295,7 @@ main() {
       gcp)
         if [ -n "$gcp_project" ]; then
           if fetch_gcp_results "$serial" "$gcp_project" "$gcp_bucket" "$output_dir"; then
-            ((collected_count++))
+            collected_count=$((collected_count + 1))
           fi
         else
           log_warn "$COMPONENT" "Skipping GCP: no project specified (use --gcp-project)"

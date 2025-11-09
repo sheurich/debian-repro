@@ -57,12 +57,31 @@ extract_results() {
 
   jq --arg platform "$platform_name" '
     if .results then
+      # Standard format with .results[] array (GCP, consensus reports)
+      . as $root |
       .results | map(
         . + {
           platform: $platform,
-          timestamp: (.timestamp // parent.timestamp)
+          timestamp: (.timestamp // $root.timestamp)
         }
       )
+    elif .architectures then
+      # GitHub nested format: .architectures.{}.suites.{}
+      # Convert to standard .results[] format
+      . as $root |
+      [.architectures | to_entries[] |
+        .key as $arch |
+        .value.suites | to_entries[] | {
+          architecture: $arch,
+          suite: .key,
+          sha256: .value.sha256,
+          reproducible: .value.reproducible,
+          official_sha256: .value.official_sha256,
+          build_time_seconds: (.value.build_time_seconds // 0),
+          platform: $platform,
+          timestamp: $root.timestamp
+        }
+      ]
     else
       []
     end
@@ -95,13 +114,13 @@ compare_suite_arch() {
     local platform
     platform=$(basename "$result_file" | sed 's/-[0-9]\+.*\.json$//')
 
-    # Extract checksum for this suite/arch
+    # Extract checksum for this suite/arch using normalized format
     local result
-    result=$(jq -r \
+    result=$(extract_results "$result_file" "$platform" | jq -r \
       --arg arch "$arch" \
       --arg suite "$suite" \
-      '.results[]? | select(.architecture == $arch and .suite == $suite) | .sha256' \
-      "$result_file" 2>/dev/null)
+      '.[] | select(.architecture == $arch and .suite == $suite) | .sha256' \
+      2>/dev/null)
 
     if [ -n "$result" ] && [ "$result" != "null" ]; then
       checksums+=("$result")
@@ -199,18 +218,21 @@ generate_witness_evidence() {
     local report_files=("${results_dir}/${platform}"-*.json)
 
     if [ -f "${report_files[0]}" ]; then
+      # Get normalized results and metadata from file
+      local normalized
+      normalized=$(extract_results "${report_files[0]}" "$platform")
+
+      local result_data
+      result_data=$(echo "$normalized" | jq --arg arch "$arch" --arg suite "$suite" \
+        '.[] | select(.architecture == $arch and .suite == $suite)')
+
+      # Get metadata from original file
+      local metadata
+      metadata=$(jq '{environment, timestamp, build_url: .platform.build_url}' "${report_files[0]}")
+
       local platform_detail
-      platform_detail=$(jq \
-        --arg arch "$arch" \
-        --arg suite "$suite" \
-        --arg platform "$platform" \
-        '{
-          platform: $platform,
-          result: (.results[] | select(.architecture == $arch and .suite == $suite)),
-          environment: .environment,
-          timestamp: .timestamp,
-          build_url: .platform.build_url
-        }' "${report_files[0]}")
+      platform_detail=$(jq -n --arg platform "$platform" --argjson result "$result_data" --argjson meta "$metadata" \
+        '{platform: $platform, result: $result} + $meta')
 
       evidence=$(echo "$evidence" | jq --argjson item "$platform_detail" '. + [$item]')
     fi
@@ -296,12 +318,21 @@ main() {
   log_info "$COMPONENT" "Comparing ${#result_files[@]} platform result(s)"
 
   # Extract all unique architecture/suite combinations
+  # First normalize all files, then extract combinations
+  local normalized_results="[]"
+  for result_file in "${result_files[@]}"; do
+    local platform
+    platform=$(basename "$result_file" | sed 's/-[0-9]\+.*\.json$//')
+    local normalized
+    normalized=$(extract_results "$result_file" "$platform")
+    normalized_results=$(echo "$normalized_results" | jq --argjson new "$normalized" '. + $new')
+  done
+
   local suite_arch_combinations
-  suite_arch_combinations=$(jq -s '
-    [.[] | .results[]? | {architecture, suite}] |
-    unique |
-    .[]
-  ' "${result_files[@]}" | jq -s '.')
+  suite_arch_combinations=$(echo "$normalized_results" | jq '
+    [.[] | {architecture, suite}] |
+    unique
+  ')
 
   log_info "$COMPONENT" "Found $(echo "$suite_arch_combinations" | jq 'length') suite/architecture combinations"
 
@@ -325,10 +356,10 @@ main() {
     has_consensus=$(echo "$comparison" | jq -r '.consensus')
 
     if [ "$has_consensus" = "true" ]; then
-      ((consensus_count++))
+      consensus_count=$((consensus_count + 1))
       log_info "$COMPONENT" "✅ Consensus: $suite/$arch"
     else
-      ((disagreement_count++))
+      disagreement_count=$((disagreement_count + 1))
       log_warn "$COMPONENT" "❌ Disagreement: $suite/$arch"
 
       # Generate evidence if requested
