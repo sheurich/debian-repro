@@ -370,6 +370,32 @@
       - name: Create results directory
         run: mkdir -p results
 
+      - name: Checkout official artifacts for verification
+        run: |
+          set -Eeuo pipefail
+
+          # Get list of architectures from inputs
+          IFS=',' read -ra ARCHS <<< "${{ github.event.inputs.architectures || 'amd64,arm64' }}"
+
+          for arch in "${ARCHS[@]}"; do
+            arch=$(echo "$arch" | xargs)  # trim whitespace
+
+            # Map architecture to artifacts branch
+            case "$arch" in
+              amd64) artifacts_branch="dist-amd64" ;;
+              arm64) artifacts_branch="dist-arm64v8" ;;
+              armhf) artifacts_branch="dist-arm32v7" ;;
+              i386) artifacts_branch="dist-i386" ;;
+              ppc64el) artifacts_branch="dist-ppc64le" ;;
+              *) continue ;;
+            esac
+
+            echo "Cloning official artifacts for $arch (branch: $artifacts_branch)"
+            git clone --depth 1 --branch "$artifacts_branch" \
+              https://github.com/debuerreotype/docker-debian-artifacts.git \
+              "official-$arch"
+          done
+
       - name: Process build artifacts and generate JSON results
         run: |
           set -Eeuo pipefail
@@ -457,32 +483,6 @@
           # List results for debugging
           echo "Generated result files:"
           ls -la results/
-
-      - name: Checkout official artifacts for verification
-        run: |
-          set -Eeuo pipefail
-
-          # Get list of architectures from inputs
-          IFS=',' read -ra ARCHS <<< "${{ github.event.inputs.architectures || 'amd64,arm64' }}"
-
-          for arch in "${ARCHS[@]}"; do
-            arch=$(echo "$arch" | xargs)  # trim whitespace
-
-            # Map architecture to artifacts branch
-            case "$arch" in
-              amd64) artifacts_branch="dist-amd64" ;;
-              arm64) artifacts_branch="dist-arm64v8" ;;
-              armhf) artifacts_branch="dist-arm32v7" ;;
-              i386) artifacts_branch="dist-i386" ;;
-              ppc64el) artifacts_branch="dist-ppc64le" ;;
-              *) continue ;;
-            esac
-
-            echo "Cloning official artifacts for $arch (branch: $artifacts_branch)"
-            git clone --depth 1 --branch "$artifacts_branch" \
-              https://github.com/debuerreotype/docker-debian-artifacts.git \
-              "official-$arch"
-          done
 
       - name: Capture environment
         run: |
