@@ -603,11 +603,3 @@
               exit 1
             fi
           fi
-
-      - name: Trigger Pages deployment
-        if: steps.push.outputs.pushed == 'true'
-        run: |
-          echo "Triggering Pages deployment..."
-          gh workflow run pages.yml --ref main
-        env:
-          GH_TOKEN: ${{ github.token }}

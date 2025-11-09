@@ -93,10 +93,20 @@ GitHub Pages hosts:
 4. Aggregate across architectures
 
 ### Reporting
-1. Generate JSON reports
-2. Update status badges
-3. Append historical data
-4. Refresh dashboard
+
+Dashboard updates after each build:
+
+1. **Fetch build results** - Collect verification data from all architectures
+2. **Verify checksums** - Compare against official Docker Hub artifacts
+   - Requires official artifacts checkout BEFORE processing
+   - Step ordering is critical for comparison to work
+3. **Generate report** - Create JSON with reproducibility metrics
+4. **Update dashboard** - Commit results to dashboard/data/
+   - Includes retry logic for handling concurrent commits
+   - Backs up, resets, and reapplies changes on conflicts
+5. **Deploy to Pages** - Manual trigger required after push
+   - GITHUB_TOKEN commits don't auto-trigger workflows
+   - Run `gh workflow run pages.yml` manually
 
 ## Cross-Platform Strategy
 
