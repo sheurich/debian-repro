@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "label": "reproducibility",
-  "message": "100%",
+  "label": "amd64",
+  "message": "reproducible",
   "color": "brightgreen"
 }
