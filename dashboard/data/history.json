@@ -216,5 +216,59 @@
         }
       }
     }
+  },
+  {
+    "timestamp": "2025-11-09T14:41:35Z",
+    "run_id": "19210013642",
+    "serial": "20251103",
+    "epoch": 1762202650,
+    "environment": {
+      "timestamp": "2025-11-09T14:41:35Z",
+      "os": {
+        "name": "Ubuntu",
+        "version": "24.04.3 LTS (Noble Numbat)",
+        "kernel": "6.11.0-1018-azure",
+        "arch": "x86_64"
+      },
+      "docker": "Docker version 28.0.4, build b8034c0",
+      "qemu": "not installed",
+      "git": {
+        "version": "git version 2.51.2",
+        "sha": "b2a379412ab50e119432ba6242d23642a45db69a",
+        "branch": "main"
+      },
+      "github_actions": {
+        "runner_os": "Linux",
+        "runner_name": "GitHub Actions 1000002700",
+        "runner_arch": "X64",
+        "workflow": "Reproducible Debian Build",
+        "run_id": "19210013642",
+        "run_number": "23"
+      }
+    },
+    "architectures": {
+      "amd64": {
+        "status": "success",
+        "suites": {
+          "trixie": {
+            "reproducible": true,
+            "sha256": "bb98e9f73c1e01fe407a96deee61aa299c62ffc41a71aa431ad7b89558881858",
+            "official_sha256": "bb98e9f73c1e01fe407a96deee61aa299c62ffc41a71aa431ad7b89558881858",
+            "build_time_seconds": 0
+          }
+        }
+      },
+      "arm64": {
+        "status": "success",
+        "suites": {
+          "trixie": {
+            "reproducible": true,
+            "sha256": "065e0b299eac33d307132621afc43a0600a64c1cbc217095b3762a3debe15af8",
+            "official_sha256": "065e0b299eac33d307132621afc43a0600a64c1cbc217095b3762a3debe15af8",
+            "build_time_seconds": 0
+          }
+        }
+      }
+    }
   }
 ]
