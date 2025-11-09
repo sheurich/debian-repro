@@ -9,7 +9,7 @@
       "url": "https://sheurich.github.io/debian-repro/",
       "license": "https://opensource.org/licenses/MIT",
       "version": "20251103",
-      "dateModified": "2025-11-08T12:44:03Z",
+      "dateModified": "2025-11-09T00:27:26Z",
       "creator": {
         "@type": "Person",
         "name": "Shiloh Heurich",
@@ -35,7 +35,7 @@
           "name": "JSON-LD Structured Data"
         }
       ],
-      "temporalCoverage": "2025-11-08T12:44:03Z",
+      "temporalCoverage": "2025-11-09T00:27:26Z",
       "spatialCoverage": {
         "@type": "Place",
         "name": "Global"
@@ -102,7 +102,7 @@
         "email": "sheurich@fastly.com"
       },
       "datePublished": "2025-01-01",
-      "dateModified": "2025-11-08T12:44:03Z",
+      "dateModified": "2025-11-09T00:27:26Z",
       "description": "Static dashboard for visualizing Debian Docker image reproducibility verification results",
       "keywords": [
         "dashboard",
