@@ -23,6 +23,9 @@ const DATA_URL_LATEST = './data/latest.json';
 /** @const {string} URL for historical verification reports */
 const DATA_URL_HISTORY = './data/history.json';
 
+/** @const {string} URL for latest consensus report */
+const DATA_URL_CONSENSUS = './data/consensus/latest.json';
+
 /** @const {number} Number of days to show in sparklines */
 const SPARKLINE_DAYS = 7;
 
@@ -35,12 +38,14 @@ const SPARKLINE_DAYS = 7;
  * @type {{
  *   latest: Object|null,
  *   history: Array<Object>,
+ *   consensus: Object|null,
  *   loaded: boolean
  * }}
  */
 const state = {
   latest: null,
   history: [],
+  consensus: null,
   loaded: false
 };
 
@@ -89,6 +94,17 @@ async function loadData() {
     console.warn('History unavailable:', error.message);
     state.history = [];
   }
+
+  // Load consensus data (optional)
+  try {
+    const response = await fetch(DATA_URL_CONSENSUS);
+    if (response.ok) {
+      state.consensus = await response.json();
+    }
+  } catch (error) {
+    console.warn('Consensus data unavailable:', error.message);
+    state.consensus = null;
+  }
 }
 
 /**
@@ -129,6 +145,25 @@ function renderSummaryBar() {
   const container = document.getElementById('summary-bar');
   const stats = calculateStats(state.latest);
 
+  // Build consensus stat if available
+  let consensusStat = '';
+  if (state.consensus) {
+    const consensusAchieved = state.consensus.consensus?.achieved || false;
+    const consensusRate = state.consensus.summary?.consensus_rate || 0;
+    const platforms = state.consensus.platforms?.length || 0;
+
+    const consensusClass = consensusAchieved ? 'consensus-pass' : 'consensus-fail';
+    const consensusIcon = consensusAchieved ? '✓' : '✗';
+    const consensusLabel = consensusAchieved ? 'consensus' : `${(consensusRate * 100).toFixed(0)}% agree`;
+
+    consensusStat = `
+      <span class="stat ${consensusClass}" title="Multi-platform consensus: ${platforms} platforms compared">
+        <span class="stat-value">${consensusIcon} ${platforms}</span>
+        <span class="stat-label">${consensusLabel}</span>
+      </span>
+    `;
+  }
+
   container.innerHTML = `
     <div class="summary-stats">
       <span class="stat">
@@ -143,6 +178,7 @@ function renderSummaryBar() {
         <span class="stat-value">${stats.totalSuites}</span>
         <span class="stat-label">suites</span>
       </span>
+      ${consensusStat}
       <span class="stat">
         <span class="stat-value">${stats.avgBuildTime}s</span>
         <span class="stat-label">avg build</span>

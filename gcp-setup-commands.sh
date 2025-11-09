@@ -8,7 +8,7 @@ set -euo pipefail
 # VARIABLES - UPDATE THESE
 # ============================================================================
 
-PROJECT_ID="your-project-id"  # CHANGE THIS to your actual GCP project ID
+PROJECT_ID="debian-repro-oxide"  # CHANGE THIS to your actual GCP project ID
 GITHUB_REPO="sheurich/debian-repro"  # Your GitHub repository
 REGION="us-central1"  # Change if desired
 

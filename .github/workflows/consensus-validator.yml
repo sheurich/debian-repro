@@ -1,0 +1,274 @@
+# .github/workflows/consensus-validator.yml
+# Validate consensus between GitHub Actions and Google Cloud Build results
+name: Consensus Validator
+
+on:
+  workflow_dispatch:
+    inputs:
+      serial:
+        description: 'Debian serial to validate (e.g., 20251020)'
+        required: true
+        type: string
+
+  schedule:
+    # Run weekly at 6 AM UTC on Mondays (after weekly builds complete)
+    - cron: '0 6 * * 1'
+
+env:
+  TZ: 'UTC'
+
+permissions:
+  contents: write
+  id-token: write  # Required for Workload Identity Federation
+
+jobs:
+  validate-consensus:
+    name: Validate Cross-Platform Consensus
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955  # v4.3.0
+
+      - name: Determine serial to validate
+        id: serial
+        run: |
+          if [ -n "${{ github.event.inputs.serial }}" ]; then
+            # Manual trigger with specified serial
+            SERIAL="${{ github.event.inputs.serial }}"
+          else
+            # Scheduled run: get latest serial from dashboard
+            if [ -f dashboard/data/latest.json ]; then
+              SERIAL=$(jq -r '.serial' dashboard/data/latest.json)
+            else
+              echo "Error: No serial specified and dashboard/data/latest.json not found"
+              exit 1
+            fi
+          fi
+
+          echo "serial=$SERIAL" >> "$GITHUB_OUTPUT"
+
+          {
+            echo "### Validating Consensus"
+            echo "**Serial**: $SERIAL"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Authenticate to Google Cloud
+        if: vars.GCP_PROJECT_ID != ''
+        id: auth
+        uses: google-github-actions/auth@6fc4af4b145ae7821d527454aa9bd537d1f2dc5f  # v2.1.7
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_WIF_SERVICE_ACCOUNT }}
+          create_credentials_file: true
+          export_environment_variables: true
+        continue-on-error: true
+
+      - name: Check GCP authentication
+        id: gcp_check
+        run: |
+          if [ "${{ steps.auth.outcome }}" = "success" ]; then
+            echo "GCP_CREDS_AVAILABLE=true" >> "$GITHUB_ENV"
+            echo "✅ GCP authentication successful" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "GCP_CREDS_AVAILABLE=false" >> "$GITHUB_ENV"
+            echo "⚠️ GCP authentication unavailable (WIF not configured or failed)" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Setup Cloud SDK
+        if: env.GCP_CREDS_AVAILABLE == 'true'
+        uses: google-github-actions/setup-gcloud@6a0c3fd857d60241564e77d0e75a4938d625c9ae  # v2.2.2
+
+      - name: Install dependencies
+        run: |
+          # Ensure jq is installed
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq jq
+
+      - name: Collect results from platforms
+        id: collect
+        run: |
+          SERIAL="${{ steps.serial.outputs.serial }}"
+          GCP_PROJECT="${{ vars.GCP_PROJECT_ID }}"
+
+          # Build collection command
+          COLLECT_CMD="./scripts/collect-results.sh --serial $SERIAL --output-dir consensus-results"
+
+          # Add GitHub repo (automatically detected from git remote)
+          COLLECT_CMD="$COLLECT_CMD --github-repo ${{ github.repository }}"
+
+          # Add GCP if credentials available
+          if [ "$GCP_CREDS_AVAILABLE" = "true" ] && [ -n "$GCP_PROJECT" ]; then
+            COLLECT_CMD="$COLLECT_CMD --gcp-project $GCP_PROJECT"
+          else
+            # Only collect from GitHub
+            COLLECT_CMD="$COLLECT_CMD --platforms github"
+            echo "platforms=github" >> "$GITHUB_OUTPUT"
+          fi
+
+          echo "Running: $COLLECT_CMD"
+          eval "$COLLECT_CMD" || {
+            echo "⚠️ Failed to collect results" >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          }
+
+          # Determine which platforms we have
+          PLATFORMS=""
+          [ -f consensus-results/github-*.json ] && PLATFORMS="github"
+          [ -f consensus-results/gcp-*.json ] && PLATFORMS="${PLATFORMS:+$PLATFORMS,}gcp"
+
+          echo "platforms=$PLATFORMS" >> "$GITHUB_OUTPUT"
+
+          {
+            echo ""
+            echo "**Platforms collected**: $PLATFORMS"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Compare platforms
+        id: compare
+        run: |
+          PLATFORMS="${{ steps.collect.outputs.platforms }}"
+
+          if [[ "$PLATFORMS" != *","* ]]; then
+            echo "⚠️ Only one platform available - consensus validation requires 2+ platforms" >> "$GITHUB_STEP_SUMMARY"
+            echo "consensus=skipped" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Run comparison with evidence generation
+          mkdir -p consensus-output
+
+          if ./scripts/compare-platforms.sh \
+            --results-dir consensus-results \
+            --output consensus-output/consensus-report.json \
+            --generate-evidence; then
+
+            echo "consensus=true" >> "$GITHUB_OUTPUT"
+
+            {
+              echo ""
+              echo "## ✅ Consensus Achieved"
+              echo ""
+              echo "All platforms agree on reproducibility results."
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "consensus=false" >> "$GITHUB_OUTPUT"
+
+            {
+              echo ""
+              echo "## ❌ Consensus Failed"
+              echo ""
+              echo "Platforms disagree on reproducibility results."
+              echo "See consensus report for details."
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Generate consensus summary
+        if: steps.compare.outputs.consensus != 'skipped'
+        run: |
+          REPORT="consensus-output/consensus-report.json"
+
+          if [ ! -f "$REPORT" ]; then
+            echo "No consensus report generated"
+            exit 0
+          fi
+
+          # Extract summary
+          TOTAL=$(jq -r '.summary.total_combinations' "$REPORT")
+          AGREED=$(jq -r '.summary.consensus_achieved' "$REPORT")
+          DISAGREED=$(jq -r '.summary.disagreements' "$REPORT")
+          RATE=$(jq -r '.summary.consensus_rate' "$REPORT")
+
+          {
+            echo ""
+            echo "### Consensus Statistics"
+            echo "- **Total combinations**: $TOTAL"
+            echo "- **Consensus achieved**: $AGREED"
+            echo "- **Disagreements**: $DISAGREED"
+            echo "- **Consensus rate**: ${RATE}%"
+            echo ""
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          # If there are disagreements, list them
+          if [ "$DISAGREED" -gt 0 ]; then
+            {
+              echo "### Disagreements Details"
+              echo ""
+            } >> "$GITHUB_STEP_SUMMARY"
+
+            jq -r '.comparisons[] | select(.disagreement == true) | "- \(.suite)/\(.architecture)"' "$REPORT" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload consensus artifacts
+        if: always() && steps.compare.outputs.consensus != 'skipped'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
+        with:
+          name: consensus-report-${{ steps.serial.outputs.serial }}
+          path: |
+            consensus-output/
+            consensus-results/
+          retention-days: 30
+
+      - name: Update dashboard with consensus data
+        if: steps.compare.outputs.consensus == 'true'
+        run: |
+          # Add consensus data to dashboard
+          REPORT="consensus-output/consensus-report.json"
+          SERIAL="${{ steps.serial.outputs.serial }}"
+
+          if [ ! -f "$REPORT" ]; then
+            echo "No consensus report to add to dashboard"
+            exit 0
+          fi
+
+          # Create consensus data file
+          mkdir -p dashboard/data/consensus
+
+          cp "$REPORT" "dashboard/data/consensus/${SERIAL}.json"
+
+          # Update latest consensus
+          cp "$REPORT" "dashboard/data/consensus/latest.json"
+
+          echo "Dashboard consensus data updated"
+
+      - name: Commit consensus results
+        if: steps.compare.outputs.consensus != 'skipped'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add dashboard/data/consensus/ || true
+
+          if git diff --staged --quiet; then
+            echo "No consensus changes to commit"
+          else
+            CONSENSUS="${{ steps.compare.outputs.consensus }}"
+            SERIAL="${{ steps.serial.outputs.serial }}"
+
+            if [ "$CONSENSUS" = "true" ]; then
+              MSG="✅ Consensus validated for serial $SERIAL"
+            else
+              MSG="❌ Consensus failed for serial $SERIAL"
+            fi
+
+            git commit -m "$MSG" -m "Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            git push origin main
+          fi
+
+      - name: Report failure
+        if: steps.compare.outputs.consensus == 'false'
+        run: |
+          echo ""
+          echo "═══════════════════════════════════════════════"
+          echo "⚠️  CONSENSUS VALIDATION FAILED"
+          echo "═══════════════════════════════════════════════"
+          echo ""
+          echo "Platforms disagree on reproducibility results."
+          echo "This may indicate:"
+          echo "  - Supply chain tampering on one platform"
+          echo "  - Build environment differences"
+          echo "  - Toolchain version mismatches"
+          echo ""
+          echo "Review consensus report and witness evidence."
+          echo ""
+          exit 1

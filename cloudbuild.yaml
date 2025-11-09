@@ -21,13 +21,16 @@
     - name: 'gcr.io/cloud-builders/git'
       id: 'fetch-official-params'
       entrypoint: 'bash'
+      env:
+        - 'build_suites=${_SUITES}'
+        - 'build_arch=${_ARCH}'
       args:
         - '-c'
         - |
           set -Eeuo pipefail
 
           # Clone docker-debian-artifacts to get official timestamps
-          git clone --depth 1 --single-branch --branch dist-${_ARCH} \
+          git clone --depth 1 --single-branch --branch dist-$$build_arch \
             https://github.com/debuerreotype/docker-debian-artifacts.git official-artifacts
 
           # Extract official build parameters
@@ -38,30 +41,30 @@
           # - debuerreotype-epoch (contains epoch timestamp)
           # - bookworm/, trixie/, etc. (suite directories)
 
-          SERIAL=$(cat serial)
-          EPOCH=$(cat debuerreotype-epoch)
-          SNAPSHOT_URL="http://snapshot.debian.org/archive/debian/${SERIAL}T000000Z"
+          SERIAL=$$(cat serial)
+          EPOCH=$$(cat debuerreotype-epoch)
+          SNAPSHOT_URL="http://snapshot.debian.org/archive/debian/$${SERIAL}T000000Z"
 
           # Save for other steps
-          echo "$SERIAL" > /workspace/serial.txt
-          echo "$EPOCH" > /workspace/epoch.txt
-          echo "$SNAPSHOT_URL" > /workspace/snapshot-url.txt
-          echo "@$EPOCH" > /workspace/timestamp.txt
+          echo "$$SERIAL" > /workspace/serial.txt
+          echo "$$EPOCH" > /workspace/epoch.txt
+          echo "$$SNAPSHOT_URL" > /workspace/snapshot-url.txt
+          echo "@$$EPOCH" > /workspace/timestamp.txt
 
           # Save official checksums for verification
           # Official artifacts are stored in flat structure: suite/rootfs.tar.xz.sha256
           mkdir -p /workspace/official-checksums
-          for suite in $_SUITES; do
-            if [ -f "$suite/rootfs.tar.xz.sha256" ]; then
-              cp "$suite/rootfs.tar.xz.sha256" \
-                "/workspace/official-checksums/$suite.sha256"
+          for suite in $$build_suites; do
+            if [ -f "$$suite/rootfs.tar.xz.sha256" ]; then
+              cp "$$suite/rootfs.tar.xz.sha256" \
+                "/workspace/official-checksums/$$suite.sha256"
             fi
           done
 
           echo "Official build parameters:"
-          echo "  Serial: $SERIAL"
-          echo "  Epoch: $EPOCH"
-          echo "  Snapshot: $SNAPSHOT_URL"
+          echo "  Serial: $$SERIAL"
+          echo "  Epoch: $$EPOCH"
+          echo "  Snapshot: $$SNAPSHOT_URL"
 
     # Step 2: Download and prepare debuerreotype
     - name: 'ubuntu:22.04'
@@ -78,9 +81,8 @@
           cd /workspace
 
           # Clone exact version of debuerreotype
-          git clone --depth 1 https://github.com/debuerreotype/debuerreotype.git
+          git clone --depth 1 --branch "${_DEBUERREOTYPE_VERSION}" https://github.com/debuerreotype/debuerreotype.git
           cd debuerreotype
-          git checkout "refs/tags/${_DEBUERREOTYPE_VERSION}"
 
           # Verify version
           ./scripts/debuerreotype-version
@@ -110,9 +112,9 @@
           set -Eeuo pipefail -x
 
           # Read official parameters
-          EPOCH=$(cat /workspace/epoch.txt)
-          SERIAL=$(cat /workspace/serial.txt)
-          SNAPSHOT_URL=$(cat /workspace/snapshot-url.txt)
+          EPOCH=$$(cat /workspace/epoch.txt)
+          SERIAL=$$(cat /workspace/serial.txt)
+          SNAPSHOT_URL=$$(cat /workspace/snapshot-url.txt)
 
           # Create output directory
           mkdir -p /workspace/output
@@ -127,79 +129,127 @@
             --security-opt apparmor=unconfined \
             --tmpfs /tmp:dev,exec,suid,noatime \
             --env TZ=UTC \
-            --env SOURCE_DATE_EPOCH="$EPOCH" \
+            --env SOURCE_DATE_EPOCH="$$EPOCH" \
             --env TMPDIR=/tmp \
-            --env SUITES="${_SUITES}" \
-            --env DPKG_ARCH="${_DPKG_ARCH}" \
-            --env EPOCH="$EPOCH" \
+            --env build_suites="${_SUITES}" \
+            --env build_dpkg_arch="${_DPKG_ARCH}" \
+            --env build_epoch="$$EPOCH" \
             --volume /workspace/output:/output \
             debuerreotype:${_DEBUERREOTYPE_VERSION} \
             sh -c '
               set -ex
               cd /tmp
-              for suite in $SUITES; do
-                echo "Building $suite for $DPKG_ARCH..."
+              for suite in $build_suites; do
+                echo "Building $suite for $build_dpkg_arch..."
 
                 # Run debian.sh with exact parameters (uses /opt/debuerreotype from Dockerfile)
                 /opt/debuerreotype/examples/debian.sh \
-                  --arch="$DPKG_ARCH" \
+                  --arch="$build_dpkg_arch" \
                   /output \
                   "$suite" \
-                  "@$EPOCH"
+                  "@$build_epoch"
               done
             '
       waitFor: ['build-debuerreotype']
 
-    # Step 5: Verify reproducibility
+    # Step 5: Verify reproducibility and generate JSON results
     - name: 'ubuntu:22.04'
       id: 'verify-reproducibility'
       entrypoint: 'bash'
+      env:
+        - 'build_suites=${_SUITES}'
+        - 'build_dpkg_arch=${_DPKG_ARCH}'
+        - 'build_arch=${_ARCH}'
       args:
         - '-c'
         - |
           set -Eeuo pipefail
 
-          SERIAL=$(cat /workspace/serial.txt)
+          # Install jq for JSON generation
+          apt-get update -qq
+          apt-get install -y -qq jq
+
+          SERIAL=$$(cat /workspace/serial.txt)
+          EPOCH=$$(cat /workspace/epoch.txt)
           FAILED=0
+
+          # Create results directory
+          mkdir -p /workspace/results
 
           echo "=== Reproducibility Verification ==="
           echo ""
 
-          for suite in $_SUITES; do
-            echo "Checking $suite (${_DPKG_ARCH})..."
+          for suite in $$build_suites; do
+            echo "Checking $$suite ($$build_dpkg_arch)..."
 
             # Our build
-            OUR_FILE="/workspace/output/$SERIAL/${_DPKG_ARCH}/$suite/rootfs.tar.xz"
-            if [ ! -f "$OUR_FILE" ]; then
-              echo "  ERROR: Our build not found: $OUR_FILE"
+            OUR_FILE="/workspace/output/$$SERIAL/$$build_dpkg_arch/$$suite/rootfs.tar.xz"
+            if [ ! -f "$$OUR_FILE" ]; then
+              echo "  ERROR: Our build not found: $$OUR_FILE"
               FAILED=1
+
+              # Create failed result JSON
+              jq -n \
+                --arg suite "$$suite" \
+                '{
+                  reproducible: false,
+                  sha256: "build-failed",
+                  official_sha256: "unknown",
+                  build_time_seconds: 0,
+                  error: "Build file not found"
+                }' > "/workspace/results/$$build_arch-$$suite.json"
               continue
             fi
 
-            OUR_SHA256=$(sha256sum "$OUR_FILE" | cut -d' ' -f1)
-            
+            OUR_SHA256=$$(sha256sum "$$OUR_FILE" | cut -d' ' -f1)
+
             # Official checksum
-            OFFICIAL_FILE="/workspace/official-checksums/$suite.sha256"
-            if [ ! -f "$OFFICIAL_FILE" ]; then
+            OFFICIAL_FILE="/workspace/official-checksums/$$suite.sha256"
+            if [ ! -f "$$OFFICIAL_FILE" ]; then
               echo "  WARNING: Official checksum not found"
-              echo "  Our SHA256: $OUR_SHA256"
+              echo "  Our SHA256: $$OUR_SHA256"
+
+              # Create result with unknown official checksum
+              jq -n \
+                --arg sha "$$OUR_SHA256" \
+                '{
+                  reproducible: false,
+                  sha256: $sha,
+                  official_sha256: "not-available",
+                  build_time_seconds: 0
+                }' > "/workspace/results/$$build_arch-$$suite.json"
               continue
             fi
-            
-            OFFICIAL_SHA256=$(cut -d' ' -f1 < "$OFFICIAL_FILE")
-            
-            if [ "$OUR_SHA256" = "$OFFICIAL_SHA256" ]; then
-              echo "  ✅ MATCH! SHA256: $OUR_SHA256"
+
+            OFFICIAL_SHA256=$$(cut -d' ' -f1 < "$$OFFICIAL_FILE")
+
+            if [ "$$OUR_SHA256" = "$$OFFICIAL_SHA256" ]; then
+              echo "  ✅ MATCH! SHA256: $$OUR_SHA256"
+              REPRODUCIBLE=true
             else
               echo "  ❌ MISMATCH!"
-              echo "     Official: $OFFICIAL_SHA256"
-              echo "     Ours:     $OUR_SHA256"
+              echo "     Official: $$OFFICIAL_SHA256"
+              echo "     Ours:     $$OUR_SHA256"
+              REPRODUCIBLE=false
               FAILED=1
             fi
+
+            # Create result JSON
+            jq -n \
+              --arg sha "$$OUR_SHA256" \
+              --arg official "$$OFFICIAL_SHA256" \
+              --argjson repro "$$REPRODUCIBLE" \
+              '{
+                reproducible: $repro,
+                sha256: $sha,
+                official_sha256: $official,
+                build_time_seconds: 0
+              }' > "/workspace/results/$$build_arch-$$suite.json"
+
             echo ""
           done
-          
-          if [ $FAILED -eq 0 ]; then
+
+          if [ $$FAILED -eq 0 ]; then
             echo "🎉 All builds are reproducible!"
           else
             echo "❌ Some builds did not match"
@@ -207,31 +257,139 @@
           fi
       waitFor: ['build-rootfs']
 
-    # Step 6: Create OCI images (optional - only if reproducible)
+    # Step 6: Generate consolidated report for consensus checking
+    - name: 'ubuntu:22.04'
+      id: 'generate-report'
+      entrypoint: 'bash'
+      env:
+        - 'build_arch=${_ARCH}'
+        - 'build_debuerreotype_version=${_DEBUERREOTYPE_VERSION}'
+      args:
+        - '-c'
+        - |
+          set -Eeuo pipefail
+
+          # Install jq
+          apt-get update -qq
+          apt-get install -y -qq jq curl
+
+          SERIAL=$$(cat /workspace/serial.txt)
+          EPOCH=$$(cat /workspace/epoch.txt)
+
+          # Generate consolidated report matching GitHub Actions format
+          TIMESTAMP=$$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+          # Build results array from individual result files
+          RESULTS_JSON="[]"
+          for result_file in /workspace/results/*.json; do
+            if [ -f "$$result_file" ]; then
+              # Extract architecture and suite from filename (format: arch-suite.json)
+              filename=$$(basename "$$result_file" .json)
+              arch=$$(echo "$$filename" | cut -d'-' -f1)
+              suite=$$(echo "$$filename" | cut -d'-' -f2-)
+
+              # Add architecture and suite to result object
+              result=$$(jq --arg arch "$$arch" --arg suite "$$suite" \
+                '. + {architecture: $arch, suite: $suite}' "$$result_file")
+
+              RESULTS_JSON=$$(echo "$$RESULTS_JSON" | jq --argjson item "$$result" '. + [$item]')
+            fi
+          done
+
+          # Get environment info
+          KERNEL=$$(uname -r)
+          OS=$$(grep PRETTY_NAME /etc/os-release | cut -d'"' -f2 || echo "Unknown")
+
+          # Generate final report
+          jq -n \
+            --arg timestamp "$$TIMESTAMP" \
+            --arg serial "$$SERIAL" \
+            --arg epoch "$$EPOCH" \
+            --arg build_id "$BUILD_ID" \
+            --arg platform "google-cloud-build" \
+            --arg project_id "$PROJECT_ID" \
+            --arg debuerreotype_version "$$build_debuerreotype_version" \
+            --arg kernel "$$KERNEL" \
+            --arg os "$$OS" \
+            --argjson results "$$RESULTS_JSON" \
+            '{
+              timestamp: $timestamp,
+              serial: $serial,
+              epoch: $epoch,
+              platform: {
+                name: $platform,
+                build_id: $build_id,
+                project_id: $project_id,
+                build_url: ("https://console.cloud.google.com/cloud-build/builds/" + $build_id + "?project=" + $project_id)
+              },
+              environment: {
+                debuerreotype_version: $debuerreotype_version,
+                kernel: $kernel,
+                os: $os
+              },
+              results: $results,
+              summary: {
+                total: ($results | length),
+                reproducible: ($results | map(select(.reproducible == true)) | length),
+                failed: ($results | map(select(.reproducible == false)) | length)
+              }
+            }' > /workspace/gcp-report.json
+
+          echo "Generated consolidated report:"
+          cat /workspace/gcp-report.json | jq '.'
+
+          # Also save to GCS-friendly path for easy retrieval by platform name
+          mkdir -p /workspace/consensus-data
+          cp /workspace/gcp-report.json /workspace/consensus-data/gcp-$$SERIAL-$$build_arch.json
+
+          echo ""
+          echo "Report saved to:"
+          echo "  - /workspace/gcp-report.json"
+          echo "  - /workspace/consensus-data/gcp-$$SERIAL-$$build_arch.json"
+      waitFor: ['verify-reproducibility']
+
+    # Step 7: Create OCI images (optional - only if reproducible)
     - name: 'ubuntu:22.04'
       id: 'create-oci'
       entrypoint: 'bash'
+      env:
+        - 'build_suites=${_SUITES}'
+        - 'build_dpkg_arch=${_DPKG_ARCH}'
       args:
         - '-c'
         - |
           set -Eeuo pipefail -x
 
-          SERIAL=$(cat /workspace/serial.txt)
+          # Install all required tools for oci-image.sh
+          apt-get update -qq
+          apt-get install -y -qq jq xz-utils pigz
+
+          SERIAL=$$(cat /workspace/serial.txt)
 
           # Only create OCI if builds are reproducible
-          for suite in $_SUITES; do
-            rootfs_dir="/workspace/output/$SERIAL/${_DPKG_ARCH}/$suite"
-            if [ -d "$rootfs_dir" ]; then
+          for suite in $$build_suites; do
+            rootfs_dir="/workspace/output/$$SERIAL/$$build_dpkg_arch/$$suite"
+            if [ -d "$$rootfs_dir" ]; then
               /workspace/debuerreotype/examples/oci-image.sh \
-                "$rootfs_dir/oci.tar" \
-                "$rootfs_dir"
+                "$$rootfs_dir/oci.tar" \
+                "$$rootfs_dir"
             fi
           done
-      waitFor: ['verify-reproducibility']
+      waitFor: ['generate-report']
 
-  artifacts:
-    objects:
-      location: 'gs://${PROJECT_ID}_cloudbuild/debian-reproducible/${BUILD_ID}'
-      paths:
-        - '/workspace/output/**/*'
-        - '/workspace/official-checksums/*'
+    # Step 8: Upload artifacts to GCS
+    - name: 'gcr.io/cloud-builders/gsutil'
+      id: 'upload-artifacts'
+      args:
+        - '-m'
+        - 'cp'
+        - '-r'
+        - '/workspace/output'
+        - '/workspace/official-checksums'
+        - '/workspace/results'
+        - '/workspace/consensus-data'
+        - '/workspace/gcp-report.json'
+        - 'gs://${PROJECT_ID}_cloudbuild/debian-reproducible/${BUILD_ID}/'
+      waitFor: ['create-oci']
+
+  # Note: artifacts section removed - using manual gsutil upload in step 8 for better control

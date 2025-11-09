@@ -12,7 +12,7 @@ readonly COMPONENT="badges"
 #######################################
 usage() {
   cat <<EOF
-Usage: $0 --report FILE --output-dir DIR
+Usage: $0 --report FILE --output-dir DIR [OPTIONS]
 
 Generate shields.io badge JSON endpoints from verification report.
 
@@ -21,15 +21,18 @@ Required arguments:
   --output-dir DIR     Output directory for badge JSON files
 
 Optional arguments:
+  --consensus FILE     Consensus report JSON file (optional)
   --help               Display this help message
 
 Outputs (in output-dir):
   - build-status.json        Build status badge
   - reproducibility-rate.json Reproducibility rate badge
   - last-verified.json       Last verification date badge
+  - consensus.json           Consensus status badge (if consensus file provided)
 
 Examples:
   $0 --report ./report.json --output-dir ./dashboard/badges
+  $0 --report ./report.json --consensus ./consensus-report.json --output-dir ./badges
 EOF
 }
 
@@ -188,6 +191,53 @@ generate_arch_badges() {
 }
 
 #######################################
+# Generate consensus status badge
+#######################################
+generate_consensus_badge() {
+  local output_dir="$1"
+  local consensus_file="$2"
+
+  # Check if consensus file exists
+  if [ ! -f "$consensus_file" ]; then
+    log_debug "$COMPONENT" "No consensus file found, skipping consensus badge"
+    return 0
+  fi
+
+  # Extract consensus data
+  local consensus_achieved consensus_rate platforms_count
+  consensus_achieved=$(jq -r '.consensus.achieved' "$consensus_file" 2>/dev/null || echo "false")
+  consensus_rate=$(jq -r '.summary.consensus_rate // 0' "$consensus_file" 2>/dev/null || echo "0")
+  platforms_count=$(jq -r '.platforms | length' "$consensus_file" 2>/dev/null || echo "0")
+
+  # Determine color and message
+  local color message
+  if [ "$consensus_achieved" = "true" ]; then
+    color="brightgreen"
+    message="consensus (${platforms_count} platforms)"
+  else
+    if [ "$(echo "$consensus_rate >= 0.8" | bc -l)" -eq 1 ]; then
+      color="yellow"
+      message="partial (${consensus_rate}%)"
+    else
+      color="red"
+      message="failed (${consensus_rate}%)"
+    fi
+  fi
+
+  jq -n \
+    --arg msg "$message" \
+    --arg color "$color" \
+    '{
+      schemaVersion: 1,
+      label: "consensus",
+      message: $msg,
+      color: $color
+    }' > "$output_dir/consensus.json"
+
+  log_info "$COMPONENT" "Generated consensus badge: $message"
+}
+
+#######################################
 # Main function
 #######################################
 main() {
@@ -195,6 +245,7 @@ main() {
 
   local report_file=""
   local output_dir=""
+  local consensus_file=""
 
   # Parse arguments
   while [[ $# -gt 0 ]]; do
@@ -205,6 +256,10 @@ main() {
         ;;
       --output-dir)
         output_dir="$2"
+        shift 2
+        ;;
+      --consensus)
+        consensus_file="$2"
         shift 2
         ;;
       --help)
@@ -245,6 +300,11 @@ main() {
   generate_reproducibility_badge "$report" "$output_dir"
   generate_last_verified_badge "$report" "$output_dir"
   generate_arch_badges "$report" "$output_dir"
+
+  # Generate consensus badge if consensus file provided
+  if [ -n "$consensus_file" ]; then
+    generate_consensus_badge "$output_dir" "$consensus_file"
+  fi
 
   local duration
   duration=$(timer_end "generate_badges")

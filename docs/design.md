@@ -171,14 +171,38 @@ Modular shell scripts provide:
 
 **Multi-Perspective Validation**
 - Minimum 2-of-N agreement threshold for accepting results
-- Each CI platform builds independently
-- Consensus reducer aggregates and validates results
+- Each CI platform builds independently with identical parameters
+- Consensus validator workflow aggregates and validates results
 - Failures trigger detailed investigation with witness evidence
+- Dashboard displays consensus status with platform-level visibility
+
+**Implementation**
+
+*Result Collection* (`scripts/collect-results.sh`)
+- Fetches verification reports from GitHub Actions and Google Cloud Build
+- Supports GitHub Pages dashboard data and GCS bucket artifacts
+- Retrieves results by serial number for specific build comparisons
+- Normalizes output format across platforms for comparison
+
+*Consensus Validation* (`scripts/compare-platforms.sh`)
+- Compares checksums across platforms for each suite/architecture combination
+- Determines consensus based on configurable threshold (default: 2 platforms)
+- Generates detailed comparison reports with platform-specific results
+- Creates witness evidence for disagreements requiring investigation
+- Supports both strict mode (all must match) and majority consensus
+
+*Automated Validation* (`.github/workflows/consensus-validator.yml`)
+- Runs daily after build completion or on-demand via workflow dispatch
+- Collects results from all configured platforms automatically
+- Validates consensus and updates dashboard with agreement status
+- Commits consensus reports to repository for historical tracking
+- Fails build when consensus cannot be achieved
 
 **Dual-Toolchain Verification**
 - Both Debuerreotype and mmdebstrap must produce identical outputs
 - Toolchain parity checked within each perspective
 - Cross-toolchain validation detects tool-specific compromises
+- *Status: Planned - mmdebstrap integration pending*
 
 ### Toolchain Integration
 
