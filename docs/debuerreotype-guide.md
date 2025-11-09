@@ -1,6 +1,6 @@
 # Building Debian Docker Images with Debuerreotype
 
-Debuerreotype builds the official Debian Docker images on Docker Hub. This guide shows how to create identical images.
+Debuerreotype builds the official Debian Docker images on Docker Hub. This guide shows how to create identical images and verify official images remain untampered.
 
 ## Prerequisites
 

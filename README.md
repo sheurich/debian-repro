@@ -7,23 +7,46 @@
 
 ## Project Purpose
 
-This repository verifies official Debian Docker images by rebuilding them with Debuerreotype and comparing SHA256 checksums. We prove that Debian images on Docker Hub can be recreated bit-for-bit.
+This repository verifies official Debian Docker images remain untampered by rebuilding them from source and comparing cryptographic checksums. We detect supply chain attacks by proving Debian images on Docker Hub recreate bit-for-bit.
+
+## Project Goals
+
+### Primary Goal
+**Verify supply chain integrity** of official Debian Docker images through independent reproducible builds, detecting tampering and unauthorized modifications.
+
+### How We Achieve This
+- **Rebuild** images from source using the official toolchain (Debuerreotype)
+- **Compare** SHA256 checksums across multiple platforms
+- **Detect** changes within hours through automated verification
+- **Publish** real-time verification status at https://sheurich.github.io/debian-repro/
+- **Require** consensus from multiple independent CI systems and validators
+
+### Additional Capabilities
+- **Daily Builds**: Fresh base images at midnight UTC for immediate use and drift detection
+- **Dual Toolchains**: Debuerreotype and mmdebstrap must produce identical outputs
+- **Consensus Required**: 2+ independent CI systems must agree before accepting results
+
+### Why This Matters
+Software supply chain attacks threaten millions of containers built on Debian base images. This project proves cryptographically that official images match their source code. No single party requires trust. Reproducibility failures signal compromise or toolchain issues requiring immediate investigation.
 
 ## Architecture
 
-**Dual CI System:**
+**Multi-Perspective CI System:**
 - **Google Cloud Build** (`cloudbuild.yaml`)
 - **GitHub Actions** (`.github/workflows/reproducible-debian-build.yml`)
+- **GitLab CI** (`.gitlab-ci.yml`)
+- **Standalone Validators** - Independent servers and self-hosted runners
 
-**Core Tool:**
-- Debuerreotype v0.16 (official Docker Hub Debian image builder)
-- Cloned from https://github.com/debuerreotype/debuerreotype
+**Verification Toolchains:**
+- **Debuerreotype v0.16** - Official Docker Hub Debian image builder
+- **mmdebstrap** - Independent toolchain for cross-validation
+- Verification passes only when both tools produce identical outputs
 
 **Verification Method:**
-- Fetch official build parameters from `debuerreotype/docker-debian-artifacts` repo (branch: `dist-{arch}`)
+- Fetch official build parameters from `debuerreotype/docker-debian-artifacts` repository
 - Build using identical timestamp (`SOURCE_DATE_EPOCH`)
 - Compare SHA256 checksums between local build and official artifacts
-- Build fails if checksums don't match
+- Fail builds when checksums differ
 
 ## Quick Start
 
