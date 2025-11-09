@@ -526,6 +526,8 @@
       - name: Commit and push dashboard updates
         id: push
         run: |
+          set -Eeuo pipefail
+
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
@@ -536,12 +538,68 @@
             echo "pushed=false" >> "$GITHUB_OUTPUT"
           else
             git commit -m "Update dashboard data from build ${{ github.run_id }}" -m "Serial: ${{ needs.fetch-official.outputs.serial }}" -m "Epoch: ${{ needs.fetch-official.outputs.epoch }}" -m "Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-            git push
-            echo "pushed=true" >> "$GITHUB_OUTPUT"
-          fi
 
-      - name: Trigger Pages deployment
-        if: steps.push.outputs.pushed == 'true'
-        run: gh workflow run pages.yml
-        env:
-          GH_TOKEN: ${{ github.token }}
+            # Pull and push with retry to handle concurrent commits
+            # Dashboard files are generated fresh each run, so we can safely
+            # overwrite with our version if there are conflicts
+            max_attempts=5
+            attempt=1
+            pushed=false
+
+            # Save our generated dashboard files
+            if [ ! -d dashboard/data ] || [ ! -d dashboard/badges ]; then
+              echo "Error: Dashboard directories don't exist before backup"
+              exit 1
+            fi
+            cp -r dashboard/data /tmp/dashboard-data-backup
+            cp -r dashboard/badges /tmp/dashboard-badges-backup
+
+            while [ $attempt -le $max_attempts ] && [ "$pushed" = "false" ]; do
+              echo "Push attempt $attempt of $max_attempts"
+
+              # Try to push
+              if git push origin main; then
+                pushed=true
+                echo "pushed=true" >> "$GITHUB_OUTPUT"
+                echo "Push successful"
+              else
+                echo "Push rejected (remote has new commits), rebasing..."
+
+                # Fetch latest and reset to it
+                git fetch origin main
+                git reset --hard origin/main
+
+                # Restore our freshly generated dashboard files
+                rm -rf dashboard/data dashboard/badges
+                cp -r /tmp/dashboard-data-backup dashboard/data
+                cp -r /tmp/dashboard-badges-backup dashboard/badges
+
+                # Recommit our changes on top of latest
+                git add dashboard/data/ dashboard/badges/
+                if git diff --staged --quiet; then
+                  echo "No changes after reset, another build pushed identical data"
+                  pushed=true
+                  echo "pushed=true" >> "$GITHUB_OUTPUT"
+                else
+                  git commit -m "Update dashboard data from build ${{ github.run_id }}" -m "Serial: ${{ needs.fetch-official.outputs.serial }}" -m "Epoch: ${{ needs.fetch-official.outputs.epoch }}" -m "Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                  echo "Recommitted on top of latest remote"
+                fi
+              fi
+
+              if [ "$pushed" = "false" ]; then
+                attempt=$((attempt + 1))
+                if [ $attempt -le $max_attempts ]; then
+                  echo "Waiting before retry..."
+                  sleep $((attempt * 2))
+                fi
+              fi
+            done
+
+            # Clean up backups
+            rm -rf /tmp/dashboard-data-backup /tmp/dashboard-badges-backup
+
+            if [ "$pushed" = "false" ]; then
+              echo "Failed to push after $max_attempts attempts"
+              exit 1
+            fi
+          fi
