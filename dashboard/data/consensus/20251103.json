@@ -1,5 +1,5 @@
 {
-  "timestamp": "2025-11-10T12:53:51Z",
+  "timestamp": "2025-11-10T14:24:27Z",
   "consensus": {
     "achieved": true,
     "threshold": 2,
@@ -12,8 +12,8 @@
     "consensus_rate": 1
   },
   "platforms": [
-    "gcp-20251103-amd64.json",
-    "github-20251103.json"
+    "gcp",
+    "github"
   ],
   "comparisons": [
     {
@@ -25,11 +25,11 @@
       "platforms_total": 2,
       "platform_results": [
         {
-          "platform": "gcp-20251103-amd64.json",
+          "platform": "gcp",
           "sha256": "b06055e3b5ceb5d30ece2923109790b54477afad47e4790739a35e89c5ac30ba"
         },
         {
-          "platform": "github-20251103.json",
+          "platform": "github",
           "sha256": "b06055e3b5ceb5d30ece2923109790b54477afad47e4790739a35e89c5ac30ba"
         }
       ],
@@ -44,7 +44,7 @@
       "platforms_total": 1,
       "platform_results": [
         {
-          "platform": "github-20251103.json",
+          "platform": "github",
           "sha256": "f502b5112a337d7061020d435688eec5b0c4f29df54e47367f570acde6b25e4c"
         }
       ],
@@ -59,7 +59,7 @@
       "platforms_total": 1,
       "platform_results": [
         {
-          "platform": "github-20251103.json",
+          "platform": "github",
           "sha256": "87f24eefbe627a0f3ddd730a6aeaab81db7ccba1be27335aade81ff283339719"
         }
       ],
@@ -74,7 +74,7 @@
       "platforms_total": 1,
       "platform_results": [
         {
-          "platform": "github-20251103.json",
+          "platform": "github",
           "sha256": "bb98e9f73c1e01fe407a96deee61aa299c62ffc41a71aa431ad7b89558881858"
         }
       ],
@@ -89,7 +89,7 @@
       "platforms_total": 1,
       "platform_results": [
         {
-          "platform": "github-20251103.json",
+          "platform": "github",
           "sha256": "069875fe277d6ed7360cbccfc5ea8bdef872d4d2295276ba26deccf5e9f5613f"
         }
       ],
@@ -104,7 +104,7 @@
       "platforms_total": 1,
       "platform_results": [
         {
-          "platform": "github-20251103.json",
+          "platform": "github",
           "sha256": "d0fb9700ee8a033bab14de1d458ab57f2e003d29b25e872c56b54238ae88fbd1"
         }
       ],
@@ -119,7 +119,7 @@
       "platforms_total": 1,
       "platform_results": [
         {
-          "platform": "github-20251103.json",
+          "platform": "github",
           "sha256": "2acd094769ae5e01fdc3388349ada740b5115b3bf49da25b6a300eaecdfe437b"
         }
       ],
@@ -134,7 +134,7 @@
       "platforms_total": 1,
       "platform_results": [
         {
-          "platform": "github-20251103.json",
+          "platform": "github",
           "sha256": "065e0b299eac33d307132621afc43a0600a64c1cbc217095b3762a3debe15af8"
         }
       ],
