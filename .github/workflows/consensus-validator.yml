@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       serial:
-        description: 'Debian serial to validate (e.g., 20251020)'
+        description: 'Official Debian serial to validate (e.g., 20251103). Must match a serial that was previously built. See dashboard for available serials.'
         required: true
         type: string
 
@@ -36,21 +36,29 @@ jobs:
           if [ -n "${{ github.event.inputs.serial }}" ]; then
             # Manual trigger with specified serial
             SERIAL="${{ github.event.inputs.serial }}"
+            SOURCE="manual input"
           else
-            # Scheduled run: get latest serial from dashboard
+            # Scheduled run: get latest serial from dashboard (which comes from official Debian builds)
             if [ -f dashboard/data/latest.json ]; then
               SERIAL=$(jq -r '.serial' dashboard/data/latest.json)
+              SOURCE="latest build in dashboard"
             else
               echo "Error: No serial specified and dashboard/data/latest.json not found"
               exit 1
             fi
           fi
 
+          echo "🔍 Validating consensus for serial: $SERIAL (from $SOURCE)"
+          echo "   Note: This validates results from previous builds of official Debian serial $SERIAL"
+
           echo "serial=$SERIAL" >> "$GITHUB_OUTPUT"
 
           {
             echo "### Validating Consensus"
             echo "**Serial**: $SERIAL"
+            echo "**Source**: $SOURCE"
+            echo ""
+            echo "> ℹ️ This validates that multiple independent platforms (GitHub Actions, GCP) produced identical checksums for official Debian serial $SERIAL"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Authenticate to Google Cloud

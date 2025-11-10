@@ -20,6 +20,10 @@
           required: true
           default: true
           type: boolean
+        expected_serial:
+          description: 'Expected serial (optional) - fails if official serial differs. Note: Serial comes from official Debian repository, not calendar date.'
+          required: false
+          type: string
 
     schedule:
       # Run weekly to verify reproducibility
@@ -58,9 +62,14 @@
             cd official-amd64
 
             # The dist-* branches have flat structure with files at root
+            # NOTE: Serial comes from official Debian repository, NOT from current date
+            # Debian publishes new builds approximately weekly
             SERIAL=$(cat serial)
             EPOCH=$(cat debuerreotype-epoch)
             SNAPSHOT_URL="http://snapshot.debian.org/archive/debian/${SERIAL}T000000Z"
+
+            echo "📦 Fetched OFFICIAL Debian serial from debuerreotype/docker-debian-artifacts"
+            echo "   Serial: $SERIAL (from official Debian build, not calendar date)"
 
             # Output parameters
             {
@@ -73,10 +82,80 @@
             # Create summary
             {
               echo "### Official Build Parameters"
+              echo "**Source**: debuerreotype/docker-debian-artifacts (official Debian repository)"
+              echo ""
               echo "- **Serial**: $SERIAL"
               echo "- **Epoch**: $EPOCH"
               echo "- **Timestamp**: @$EPOCH"
               echo "- **Snapshot**: $SNAPSHOT_URL"
+              echo ""
+              echo "> ℹ️ Serial comes from official Debian builds, not current date. Debian publishes new images approximately weekly."
+            } >> "$GITHUB_STEP_SUMMARY"
+
+        - name: Validate expected serial
+          if: github.event.inputs.expected_serial != ''
+          run: |
+            EXPECTED="${{ github.event.inputs.expected_serial }}"
+            ACTUAL="${{ steps.params.outputs.serial }}"
+
+            echo "Validating serial expectation..."
+            echo "  Expected: $EXPECTED"
+            echo "  Actual (from official repo): $ACTUAL"
+
+            if [ "$ACTUAL" != "$EXPECTED" ]; then
+              {
+                echo "## ❌ Serial Mismatch"
+                echo ""
+                echo "**Expected serial**: \`$EXPECTED\`"
+                echo "**Official serial**: \`$ACTUAL\`"
+                echo ""
+                echo "### Why This Happened"
+                echo ""
+                echo "This system verifies **official Debian builds** from the \`debuerreotype/docker-debian-artifacts\` repository."
+                echo ""
+                echo "- The current official serial is **$ACTUAL** (last Debian image build)"
+                echo "- You expected serial **$EXPECTED**"
+                echo "- Debian publishes new builds approximately weekly"
+                echo "- Serial dates reflect when Debian published the build, not the current calendar date"
+                echo ""
+                echo "### What To Do"
+                echo ""
+                echo "**Option 1**: Use the current official serial (\`$ACTUAL\`)"
+                echo "\`\`\`bash"
+                echo "gh workflow run reproducible-debian-build.yml"
+                echo "\`\`\`"
+                echo ""
+                echo "**Option 2**: Wait for Debian to publish a new build"
+                echo "- Monitor: https://github.com/debuerreotype/docker-debian-artifacts"
+                echo "- Official builds appear approximately weekly"
+                echo ""
+                echo "**Option 3**: Build daily images (future feature)"
+                echo "- For arbitrary date builds, use the daily build workflow (not yet implemented)"
+                echo "- This workflow is specifically for supply chain verification of official images"
+              } >> "$GITHUB_STEP_SUMMARY"
+
+              echo ""
+              echo "═══════════════════════════════════════════════"
+              echo "❌ SERIAL MISMATCH"
+              echo "═══════════════════════════════════════════════"
+              echo ""
+              echo "Expected: $EXPECTED"
+              echo "Official: $ACTUAL"
+              echo ""
+              echo "This system verifies OFFICIAL Debian builds."
+              echo "The current official serial is $ACTUAL"
+              echo "(from debuerreotype/docker-debian-artifacts)"
+              echo ""
+              echo "Debian publishes new builds approximately weekly."
+              echo "Serial $EXPECTED is not yet available in the official repository."
+              echo ""
+              exit 1
+            fi
+
+            {
+              echo "### ✅ Serial Validation Passed"
+              echo ""
+              echo "Expected serial \`$EXPECTED\` matches official serial."
             } >> "$GITHUB_STEP_SUMMARY"
 
         - name: Setup build matrix
