@@ -87,6 +87,8 @@ jobs:
 
       - name: Collect results from platforms
         id: collect
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           SERIAL="${{ steps.serial.outputs.serial }}"
           GCP_PROJECT="${{ vars.GCP_PROJECT_ID }}"
