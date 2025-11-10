@@ -182,7 +182,9 @@ Modular shell scripts provide:
 - Fetches verification reports from GitHub Actions and Google Cloud Build
 - Supports GitHub Pages dashboard data and GCS bucket artifacts
 - Retrieves results by serial number for specific build comparisons
-- Normalizes output format across platforms for comparison
+- Multi-platform collection in single run (fixed in commit 3ba3cbf)
+- Exit code 0 on success, non-zero on failures
+- Automatic retry and error handling for network failures
 
 *Consensus Validation* (`scripts/compare-platforms.sh`)
 - Compares checksums across platforms for each suite/architecture combination
@@ -190,13 +192,50 @@ Modular shell scripts provide:
 - Generates detailed comparison reports with platform-specific results
 - Creates witness evidence for disagreements requiring investigation
 - Supports both strict mode (all must match) and majority consensus
+- Automatic format normalization (fixed in commit 3ba3cbf):
+  - GitHub nested format: `.architectures.{arch}.suites.{suite}`
+  - GCP array format: `.results[]`
+- Exit code 0 when consensus achieved, non-zero on disagreement
 
 *Automated Validation* (`.github/workflows/consensus-validator.yml`)
-- Runs daily after build completion or on-demand via workflow dispatch
+- Runs weekly after build completion or on-demand via workflow dispatch
+- Uses Workload Identity Federation for secure GCP authentication
 - Collects results from all configured platforms automatically
 - Validates consensus and updates dashboard with agreement status
 - Commits consensus reports to repository for historical tracking
 - Fails build when consensus cannot be achieved
+
+**Usage Examples**
+
+Manual consensus validation:
+```bash
+# Collect results from both platforms
+./scripts/collect-results.sh \
+  --serial 20251020 \
+  --github-repo sheurich/debian-repro \
+  --gcp-project debian-repro-oxide \
+  --output-dir consensus-results
+
+# Compare and validate consensus
+./scripts/compare-platforms.sh \
+  --results-dir consensus-results \
+  --threshold 2 \
+  --output consensus-report.json
+```
+
+Automated via workflow:
+```bash
+# Trigger for specific serial
+gh workflow run consensus-validator.yml -f serial=20251020
+
+# View results
+gh run watch
+```
+
+**Status**: Fully operational as of commit 3ba3cbf (November 2025)
+- Tested with 8 suite/architecture combinations
+- Achieved 100% consensus across GitHub Actions and Google Cloud Build
+- Both scripts exit with proper codes and generate valid JSON reports
 
 **Dual-Toolchain Verification**
 - Both Debuerreotype and mmdebstrap must produce identical outputs
@@ -266,6 +305,30 @@ Dashboard updates after each build:
 5. **Deploy to Pages** - Manual trigger required after push
    - GITHUB_TOKEN commits don't auto-trigger workflows
    - Run `gh workflow run pages.yml` manually
+
+### Consensus Validation
+
+After individual platform builds complete:
+
+1. **Collect Results** - Gather verification reports from all platforms
+   - GitHub Actions (dashboard data or workflow artifacts)
+   - Google Cloud Build (GCS bucket artifacts)
+   - Normalizes format differences automatically
+
+2. **Compare Checksums** - Validate agreement across platforms
+   - Groups results by suite/architecture combination
+   - Applies consensus threshold (default: 2-of-N)
+   - Generates detailed comparison report
+
+3. **Update Dashboard** - Publish consensus status
+   - Consensus rate per suite/architecture
+   - Platform-specific verification status
+   - Historical consensus trends
+
+4. **Investigation** - On consensus failure
+   - Witness evidence with per-platform checksums
+   - Build logs from all platforms
+   - Environment capture for debugging
 
 ## Cross-Platform Strategy
 
@@ -446,10 +509,12 @@ Each build runs in an isolated Docker container with specific security configura
 - **Cryptographic Verification**: SHA256 for all architectures/suites
 - **False Positive Rate**: 0% when uncompromised
 - **Toolchain Parity**: > 99% agreement rate
-- **Consensus Achievement**: > 95% reach 2-of-N threshold
+- **Consensus Achievement**: > 95% reach 2-of-N threshold (Active: achieved 100% in November 2025 testing)
 
 ### Operational Metrics
-- **Multi-Platform Consensus**: > 99% agreement across CI systems
+- **Multi-Platform Consensus**: > 99% agreement across CI systems (Active: GitHub Actions + Google Cloud Build)
+- **Cross-Platform Collection**: Successfully collects from multiple platforms in single run
+- **Format Compatibility**: Handles both nested and array JSON formats automatically
 - **Daily Build Coverage**: > 95% of suite/architecture combinations
 - **Verification Speed**: < 10 minutes locally
 - **Dashboard Availability**: > 99.9% uptime

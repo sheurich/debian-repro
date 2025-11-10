@@ -121,6 +121,42 @@ curl -sL https://raw.githubusercontent.com/debuerreotype/docker-debian-artifacts
 sha256sum output/20251020/amd64/bookworm/rootfs.tar.xz
 ```
 
+### Consensus Validation
+
+**Cross-platform verification:**
+```bash
+# Collect results from all platforms for a serial
+./scripts/collect-results.sh \
+  --serial 20251020 \
+  --github-repo sheurich/debian-repro \
+  --gcp-project debian-repro-oxide \
+  --output-dir consensus-results
+
+# Validate consensus (requires 2+ platforms to agree)
+./scripts/compare-platforms.sh \
+  --results-dir consensus-results \
+  --threshold 2 \
+  --output consensus-report.json
+```
+
+**Automated consensus check:**
+```bash
+# Trigger consensus validator workflow
+gh workflow run consensus-validator.yml -f serial=20251020
+
+# Watch progress
+gh run watch
+
+# View consensus report in artifacts
+gh run download <run-id> -n consensus-report
+```
+
+**Features:**
+- Multi-platform collection in single run
+- Automatic format normalization (GitHub nested vs GCP array)
+- Configurable consensus threshold (default: 2-of-N)
+- Exit code 0 = consensus achieved, non-zero = disagreement
+
 ## Key Configuration
 
 **Supported Architectures:** amd64, arm64, armhf, i386, ppc64el, s390x
@@ -170,4 +206,9 @@ Use the exact timestamp from official builds - this is the single most critical 
 
 ## Documentation
 
-See [`docs/debuerreotype-guide.md`](docs/debuerreotype-guide.md) for step-by-step instructions on using Debuerreotype and verifying builds.
+- [`docs/debuerreotype-guide.md`](docs/debuerreotype-guide.md) - Step-by-step guide for using Debuerreotype
+- [`docs/local-setup.md`](docs/local-setup.md) - Local verification setup and troubleshooting
+- [`docs/gcp-setup-instructions.md`](docs/gcp-setup-instructions.md) - Google Cloud Platform integration with WIF
+- [`docs/consensus-validation-guide.md`](docs/consensus-validation-guide.md) - Cross-platform consensus validation
+- [`docs/design.md`](docs/design.md) - Complete system architecture and design rationale
+- [`docs/dashboard-setup.md`](docs/dashboard-setup.md) - GitHub Pages dashboard configuration
