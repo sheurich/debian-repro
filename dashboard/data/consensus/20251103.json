@@ -1,0 +1,144 @@
+{
+  "timestamp": "2025-11-10T12:53:51Z",
+  "consensus": {
+    "achieved": true,
+    "threshold": 2,
+    "require_all_match": false
+  },
+  "summary": {
+    "total_combinations": 8,
+    "consensus_achieved": 8,
+    "disagreements": 0,
+    "consensus_rate": 1
+  },
+  "platforms": [
+    "gcp-20251103-amd64.json",
+    "github-20251103.json"
+  ],
+  "comparisons": [
+    {
+      "architecture": "amd64",
+      "suite": "bookworm",
+      "consensus": true,
+      "consensus_checksum": "b06055e3b5ceb5d30ece2923109790b54477afad47e4790739a35e89c5ac30ba",
+      "platforms_agreeing": 2,
+      "platforms_total": 2,
+      "platform_results": [
+        {
+          "platform": "gcp-20251103-amd64.json",
+          "sha256": "b06055e3b5ceb5d30ece2923109790b54477afad47e4790739a35e89c5ac30ba"
+        },
+        {
+          "platform": "github-20251103.json",
+          "sha256": "b06055e3b5ceb5d30ece2923109790b54477afad47e4790739a35e89c5ac30ba"
+        }
+      ],
+      "disagreement": false
+    },
+    {
+      "architecture": "amd64",
+      "suite": "bullseye",
+      "consensus": true,
+      "consensus_checksum": "f502b5112a337d7061020d435688eec5b0c4f29df54e47367f570acde6b25e4c",
+      "platforms_agreeing": 1,
+      "platforms_total": 1,
+      "platform_results": [
+        {
+          "platform": "github-20251103.json",
+          "sha256": "f502b5112a337d7061020d435688eec5b0c4f29df54e47367f570acde6b25e4c"
+        }
+      ],
+      "disagreement": false
+    },
+    {
+      "architecture": "amd64",
+      "suite": "forky",
+      "consensus": true,
+      "consensus_checksum": "87f24eefbe627a0f3ddd730a6aeaab81db7ccba1be27335aade81ff283339719",
+      "platforms_agreeing": 1,
+      "platforms_total": 1,
+      "platform_results": [
+        {
+          "platform": "github-20251103.json",
+          "sha256": "87f24eefbe627a0f3ddd730a6aeaab81db7ccba1be27335aade81ff283339719"
+        }
+      ],
+      "disagreement": false
+    },
+    {
+      "architecture": "amd64",
+      "suite": "trixie",
+      "consensus": true,
+      "consensus_checksum": "bb98e9f73c1e01fe407a96deee61aa299c62ffc41a71aa431ad7b89558881858",
+      "platforms_agreeing": 1,
+      "platforms_total": 1,
+      "platform_results": [
+        {
+          "platform": "github-20251103.json",
+          "sha256": "bb98e9f73c1e01fe407a96deee61aa299c62ffc41a71aa431ad7b89558881858"
+        }
+      ],
+      "disagreement": false
+    },
+    {
+      "architecture": "arm64",
+      "suite": "bookworm",
+      "consensus": true,
+      "consensus_checksum": "069875fe277d6ed7360cbccfc5ea8bdef872d4d2295276ba26deccf5e9f5613f",
+      "platforms_agreeing": 1,
+      "platforms_total": 1,
+      "platform_results": [
+        {
+          "platform": "github-20251103.json",
+          "sha256": "069875fe277d6ed7360cbccfc5ea8bdef872d4d2295276ba26deccf5e9f5613f"
+        }
+      ],
+      "disagreement": false
+    },
+    {
+      "architecture": "arm64",
+      "suite": "bullseye",
+      "consensus": true,
+      "consensus_checksum": "d0fb9700ee8a033bab14de1d458ab57f2e003d29b25e872c56b54238ae88fbd1",
+      "platforms_agreeing": 1,
+      "platforms_total": 1,
+      "platform_results": [
+        {
+          "platform": "github-20251103.json",
+          "sha256": "d0fb9700ee8a033bab14de1d458ab57f2e003d29b25e872c56b54238ae88fbd1"
+        }
+      ],
+      "disagreement": false
+    },
+    {
+      "architecture": "arm64",
+      "suite": "forky",
+      "consensus": true,
+      "consensus_checksum": "2acd094769ae5e01fdc3388349ada740b5115b3bf49da25b6a300eaecdfe437b",
+      "platforms_agreeing": 1,
+      "platforms_total": 1,
+      "platform_results": [
+        {
+          "platform": "github-20251103.json",
+          "sha256": "2acd094769ae5e01fdc3388349ada740b5115b3bf49da25b6a300eaecdfe437b"
+        }
+      ],
+      "disagreement": false
+    },
+    {
+      "architecture": "arm64",
+      "suite": "trixie",
+      "consensus": true,
+      "consensus_checksum": "065e0b299eac33d307132621afc43a0600a64c1cbc217095b3762a3debe15af8",
+      "platforms_agreeing": 1,
+      "platforms_total": 1,
+      "platform_results": [
+        {
+          "platform": "github-20251103.json",
+          "sha256": "065e0b299eac33d307132621afc43a0600a64c1cbc217095b3762a3debe15af8"
+        }
+      ],
+      "disagreement": false
+    }
+  ]
+}

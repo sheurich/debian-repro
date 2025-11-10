@@ -231,6 +231,20 @@ jobs:
 
           echo "Dashboard consensus data updated"
 
+      - name: Generate consensus badge
+        if: steps.compare.outputs.consensus == 'true'
+        run: |
+          # Generate consensus badge from latest dashboard data
+          if [ -f "dashboard/data/latest.json" ] && [ -f "dashboard/data/consensus/latest.json" ]; then
+            ./scripts/generate-badges.sh \
+              --report dashboard/data/latest.json \
+              --consensus dashboard/data/consensus/latest.json \
+              --output-dir dashboard/badges
+            echo "Consensus badge generated"
+          else
+            echo "Missing required files for badge generation"
+          fi
+
       - name: Commit consensus results
         if: steps.compare.outputs.consensus != 'skipped'
         run: |

@@ -3,6 +3,7 @@
 ![Build Status](https://github.com/sheurich/debian-repro/actions/workflows/reproducible-debian-build.yml/badge.svg)
 ![Lint Status](https://github.com/sheurich/debian-repro/actions/workflows/lint.yml/badge.svg)
 ![Reproducibility Rate](https://img.shields.io/endpoint?url=https://sheurich.github.io/debian-repro/badges/reproducibility-rate.json)
+![Consensus Status](https://img.shields.io/endpoint?url=https://sheurich.github.io/debian-repro/badges/consensus.json)
 ![Last Verified](https://img.shields.io/endpoint?url=https://sheurich.github.io/debian-repro/badges/last-verified.json)
 
 ## Project Purpose
