@@ -1,10 +1,10 @@
 {
-  "timestamp": "2025-11-10T14:35:49Z",
-  "run_id": "19235051015",
+  "timestamp": "2025-11-10T16:57:37Z",
+  "run_id": "19239383907",
   "serial": "20251103",
   "epoch": 1762202650,
   "environment": {
-    "timestamp": "2025-11-10T14:35:49Z",
+    "timestamp": "2025-11-10T16:57:37Z",
     "os": {
       "name": "Ubuntu",
       "version": "24.04.3 LTS (Noble Numbat)",
@@ -15,52 +15,17 @@
     "qemu": "not installed",
     "git": {
       "version": "git version 2.51.2",
-      "sha": "d66790b28522ae68e65a7277021723cf0c3aa370",
+      "sha": "66f854e5ed1cf6c901a688856388d4e7fe4c84a0",
       "branch": "main"
     },
     "github_actions": {
       "runner_os": "Linux",
-      "runner_name": "GitHub Actions 1000002766",
+      "runner_name": "GitHub Actions 1000002775",
       "runner_arch": "X64",
       "workflow": "Reproducible Debian Build",
-      "run_id": "19235051015",
-      "run_number": "25"
+      "run_id": "19239383907",
+      "run_number": "26"
     }
   },
-  "architectures": {
-    "arm64": {
-      "status": "success",
-      "suites": {
-        "bookworm": {
-          "reproducible": true,
-          "sha256": "069875fe277d6ed7360cbccfc5ea8bdef872d4d2295276ba26deccf5e9f5613f",
-          "official_sha256": "069875fe277d6ed7360cbccfc5ea8bdef872d4d2295276ba26deccf5e9f5613f",
-          "build_time_seconds": 0
-        },
-        "trixie": {
-          "reproducible": true,
-          "sha256": "065e0b299eac33d307132621afc43a0600a64c1cbc217095b3762a3debe15af8",
-          "official_sha256": "065e0b299eac33d307132621afc43a0600a64c1cbc217095b3762a3debe15af8",
-          "build_time_seconds": 0
-        }
-      }
-    },
-    "amd64": {
-      "status": "success",
-      "suites": {
-        "bookworm": {
-          "reproducible": true,
-          "sha256": "b06055e3b5ceb5d30ece2923109790b54477afad47e4790739a35e89c5ac30ba",
-          "official_sha256": "b06055e3b5ceb5d30ece2923109790b54477afad47e4790739a35e89c5ac30ba",
-          "build_time_seconds": 0
-        },
-        "trixie": {
-          "reproducible": true,
-          "sha256": "bb98e9f73c1e01fe407a96deee61aa299c62ffc41a71aa431ad7b89558881858",
-          "official_sha256": "bb98e9f73c1e01fe407a96deee61aa299c62ffc41a71aa431ad7b89558881858",
-          "build_time_seconds": 0
-        }
-      }
-    }
-  }
+  "architectures": {}
 }
