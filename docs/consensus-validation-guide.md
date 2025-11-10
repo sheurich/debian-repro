@@ -2,7 +2,7 @@
 
 ## Overview
 
-Cross-platform consensus validation ensures no single CI system can be compromised without detection. This guide explains how to use the consensus validation tools to verify agreement across independent build platforms.
+Cross-platform consensus validation detects compromised CI systems through multi-platform comparison. Use the consensus validation tools to verify agreement across independent build platforms.
 
 ## Prerequisites
 

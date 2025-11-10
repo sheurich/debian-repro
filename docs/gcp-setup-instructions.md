@@ -1,6 +1,6 @@
 # GCP Setup Instructions
 
-This document contains instructions for setting up Google Cloud Platform resources needed for cross-platform reproducibility verification.
+Set up Google Cloud Platform resources for cross-platform reproducibility verification.
 
 ## Prerequisites
 
@@ -172,7 +172,7 @@ Check the workflow run output. You should see:
 
 ### Workload Identity Federation
 - **No long-lived credentials**: GitHub Actions requests short-lived tokens at runtime
-- **Automatic rotation**: OIDC tokens expire quickly and are renewed automatically
+- **Automatic rotation**: OIDC tokens expire quickly and renew automatically
 - **Repository-scoped**: Only your specific repository can authenticate
 - **Industry best practice**: Recommended by Google and GitHub for CI/CD authentication
 

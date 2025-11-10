@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-The system detects supply chain attacks by proving official Debian Docker images rebuild bit-for-bit from source. Independent cryptographic verification across multiple platforms protects millions of containers relying on Debian base images.
+We detect supply chain attacks by proving official Debian Docker images rebuild bit-for-bit from source. Independent cryptographic verification across multiple platforms protects millions of containers relying on Debian base images.
 
 ## System Goals
 
@@ -73,7 +73,7 @@ Verify continuously that official Debian Docker images reproduce bit-for-bit fro
 
 ### Detection Capabilities
 
-#### How Tampering Is Revealed
+#### How We Reveal Tampering
 - **Checksum Mismatch**: Modifications break SHA256 verification
 - **Cross-Platform Divergence**: Tampering affects single platforms
 - **Temporal Anomalies**: Unexpected changes between verifications
@@ -82,20 +82,20 @@ Verify continuously that official Debian Docker images reproduce bit-for-bit fro
 - **Consensus Failure**: CI systems fail 2-of-N threshold
 
 #### Response to Detection
-When reproducibility fails, the system:
-1. Immediately fails the CI/CD build with detailed error logs
-2. Updates public dashboard showing which images cannot be verified
-3. Provides forensic data for investigation (checksums, build logs, parameters)
-4. Enables rapid triage by comparing multiple platforms and architectures
+When reproducibility fails, we:
+1. Immediately fail the CI/CD build with detailed error logs
+2. Update the public dashboard showing which images cannot be verified
+3. Provide forensic data for investigation (checksums, build logs, parameters)
+4. Enable rapid triage by comparing multiple platforms and architectures
 
 ### Trust Assumptions
 
-This system requires trust in:
+You must trust:
 - **Debian Source Packages**: We verify the build process, not package contents
 - **Cryptographic Functions**: SHA256 must remain cryptographically secure
 - **Build Environment**: Our verification infrastructure must be secure
 
-This system reduces trust requirements through:
+We reduce trust requirements through:
 - **Dual-Toolchain Verification**: Both Debuerreotype and mmdebstrap must agree
 - **Multi-Perspective Consensus**: Multiple CI platforms must reach consensus
 - **Independent Validators**: Community-operated verification distributes trust
@@ -269,7 +269,7 @@ GitHub Pages hosts:
 - Status badges
 - Mobile-responsive interface
 
-**Configuration:** GitHub Pages uses GitHub Actions as the publishing source. The `pages.yml` workflow automatically deploys the `/dashboard` directory after each update. The dashboard data updates after each CI run via the `update-dashboard` workflow job.
+**Configuration:** GitHub Pages uses GitHub Actions as the publishing source. The `pages.yml` workflow automatically deploys the `/dashboard` directory after each update. The `update-dashboard` workflow job updates the dashboard data after each CI run.
 
 ## Verification Process
 
@@ -334,7 +334,7 @@ After individual platform builds complete:
 
 ### Platform Comparison
 
-The system builds on GitHub Actions and Google Cloud Build daily. It compares checksums to verify platform-independent reproducibility.
+We build on GitHub Actions and Google Cloud Build daily, comparing checksums to verify platform-independent reproducibility.
 
 ### Architecture Support
 
@@ -348,15 +348,15 @@ The system builds on GitHub Actions and Google Cloud Build daily. It compares ch
 
 ### Smart Verification
 
-The system monitors official artifacts every 4 hours. It triggers builds only when detecting changes, tracking state to prevent redundant verification.
+We monitor official artifacts every 4 hours, triggering builds only when we detect changes and tracking state to prevent redundant verification.
 
 ### Platform Consistency Validation
 
-Each day the system validates platform consistency:
-1. Builds with current timestamp on all platforms
-2. Compares checksums between platforms
-3. Tracks platform-specific success rates
-4. Updates cross-platform match percentage
+Each day we validate platform consistency:
+1. Build with current timestamp on all platforms
+2. Compare checksums between platforms
+3. Track platform-specific success rates
+4. Update cross-platform match percentage
 
 ## Daily Builds
 
@@ -476,7 +476,7 @@ Daily time-locked builds serve two functions:
 4. Update documentation
 
 ### Adding Suites
-The system automatically supports new suites when they appear in the official repository.
+New suites automatically work when they appear in the official repository.
 
 ### Integration Points
 - JSON reports enable programmatic access

@@ -7,7 +7,7 @@
 
 ## Project Purpose
 
-This repository verifies official Debian Docker images remain untampered by rebuilding them from source and comparing cryptographic checksums. We detect supply chain attacks by proving Debian images on Docker Hub recreate bit-for-bit.
+We detect supply chain attacks against official Debian Docker images by rebuilding from source and comparing cryptographic checksums. Bit-for-bit reproduction proves images remain untampered.
 
 ## Project Goals
 
@@ -71,7 +71,7 @@ cd debian-repro
 ./verify-local.sh --parallel --suites "bookworm trixie bullseye" --arch amd64
 ```
 
-**Cross-architecture emulation is automatically configured** when needed. The script detects missing architectures and installs binfmt support using QEMU.
+**The script automatically configures cross-architecture emulation** when needed, detecting missing architectures and installing binfmt support via QEMU.
 
 See **[docs/local-setup.md](docs/local-setup.md)** for setup details and troubleshooting.
 

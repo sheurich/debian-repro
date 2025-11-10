@@ -29,7 +29,7 @@ sudo usermod -aG docker $USER && newgrp docker
 
 #### macOS with Colima
 
-Colima defaults enable cross-architecture builds:
+Colima enables cross-architecture builds by default:
 - Default: `rosetta: false` and `binfmt: true` (optimal for multi-arch)
 - Works with both `vmType: qemu` (default) or `vmType: vz`
 
@@ -52,7 +52,7 @@ docker run --rm arm64v8/alpine uname -m  # Should output: aarch64
 
 #### macOS with Docker Desktop
 
-Docker Desktop supports cross-architecture builds. Colima provides more reliable multi-arch support.
+Docker Desktop supports cross-architecture builds, but Colima provides more reliable multi-arch support.
 
 ### Optional Tools
 
@@ -180,7 +180,7 @@ echo "✅ All suites verified!"
 
 ### Multi-Architecture Builds
 
-Cross-architecture builds now work automatically! The `verify-local.sh` script detects when you're building for a non-native architecture and automatically installs the required emulation support if needed.
+Cross-architecture builds work automatically. The `verify-local.sh` script detects when you're building for a non-native architecture and automatically installs the required emulation support if needed.
 
 #### Automatic Setup (All Platforms)
 
@@ -341,7 +341,7 @@ sudo usermod -aG docker $USER && newgrp docker
 
 ### Build Fails: Requires SYS_ADMIN
 
-Debuerreotype requires elevated privileges. Scripts handle this automatically. If running Docker manually:
+Debuerreotype requires elevated privileges. Our scripts handle this automatically. If running Docker manually:
 
 ```bash
 docker run \

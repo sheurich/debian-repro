@@ -1,10 +1,8 @@
 # Dashboard Setup Guide
 
-This guide explains how to configure and use the reproducibility verification dashboard.
-
 ## Overview
 
-The dashboard provides a web-based interface following Edward Tufte's design principles for data visualization:
+The dashboard follows Edward Tufte's design principles for data visualization:
 
 ### Features
 
@@ -21,7 +19,7 @@ The dashboard provides a web-based interface following Edward Tufte's design pri
 
 ## Configuring GitHub Pages
 
-The dashboard uses GitHub Actions as the publishing source. Deployment happens automatically via the `.github/workflows/pages.yml` workflow.
+The dashboard uses GitHub Actions as the publishing source. The `pages.yml` workflow deploys automatically.
 
 ### Setup Steps
 
@@ -33,7 +31,7 @@ The dashboard uses GitHub Actions as the publishing source. Deployment happens a
    - Click **Save**
 
 3. **Verify Deployment**
-   - The workflow triggers automatically on push to main when `dashboard/` files change
+   - Pushing to main triggers the workflow when `dashboard/` files change
    - Check the Actions tab for the "Deploy Pages" workflow
    - Wait 1-2 minutes for deployment to complete
    - Visit https://sheurich.github.io/debian-repro/
@@ -43,12 +41,12 @@ The dashboard uses GitHub Actions as the publishing source. Deployment happens a
 
 On first deployment:
 - The `github-pages` environment is created automatically
-- The page may show placeholder data until the first verification run completes
+- The page shows placeholder data until the first verification completes
 - Manual trigger available: Go to Actions → Deploy Pages → Run workflow
 
 ## How Dashboard Updates Work
 
-The dashboard automatically updates after each verification run through the GitHub Actions `update-dashboard` job.
+The `update-dashboard` job updates the dashboard after each verification run.
 
 ### Update Process
 
