@@ -3,6 +3,20 @@
 
 load ../test_helper
 
+# Load bats-support and bats-assert if available
+# Check multiple locations: CI (/usr/lib), local (/tmp for testing)
+if [ -f '/usr/lib/bats-support/load.bash' ]; then
+  load '/usr/lib/bats-support/load'
+elif [ -f '/tmp/bats-support/load.bash' ]; then
+  load '/tmp/bats-support/load'
+fi
+
+if [ -f '/usr/lib/bats-assert/load.bash' ]; then
+  load '/usr/lib/bats-assert/load'
+elif [ -f '/tmp/bats-assert/load.bash' ]; then
+  load '/tmp/bats-assert/load'
+fi
+
 setup() {
   export TEST_DIR="$(mktemp -d)"
   export REPORT_FILE="$TEST_DIR/report.json"
