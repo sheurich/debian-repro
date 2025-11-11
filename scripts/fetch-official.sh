@@ -150,7 +150,8 @@ main() {
   local serial epoch snapshot_url timestamp
   serial=$(cat serial)
   epoch=$(cat debuerreotype-epoch)
-  snapshot_url="http://snapshot.debian.org/archive/debian/${serial}T000000Z"
+  # Security: Use HTTPS to prevent man-in-the-middle attacks on snapshot URLs
+  snapshot_url="https://snapshot.debian.org/archive/debian/${serial}T000000Z"
   timestamp="@${epoch}"
 
   log_info "$COMPONENT" "Found build parameters:"

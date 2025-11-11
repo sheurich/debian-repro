@@ -139,10 +139,11 @@ jobs:
         run: |
           PLATFORMS="${{ steps.collect.outputs.platforms }}"
 
+          # Security: Cannot validate consensus with single platform - fail workflow
           if [[ "$PLATFORMS" != *","* ]]; then
             echo "⚠️ Only one platform available - consensus validation requires 2+ platforms" >> "$GITHUB_STEP_SUMMARY"
             echo "consensus=skipped" >> "$GITHUB_OUTPUT"
-            exit 0
+            exit 1
           fi
 
           # Run comparison with evidence generation

@@ -379,8 +379,9 @@ main() {
     # Strict mode: all must match
     [ "$disagreement_count" -eq 0 ] && overall_consensus=true
   else
-    # Threshold mode: require minimum agreement
-    [ "${#result_files[@]}" -ge "$threshold" ] && [ "$consensus_count" -gt 0 ] && overall_consensus=true
+    # Threshold mode: require minimum platforms AND all combinations must achieve consensus
+    # Security: Partial consensus (some suites/archs matching) is insufficient
+    [ "${#result_files[@]}" -ge "$threshold" ] && [ "$disagreement_count" -eq 0 ] && overall_consensus=true
   fi
 
   # Generate final report
