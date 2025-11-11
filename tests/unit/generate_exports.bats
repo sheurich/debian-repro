@@ -92,10 +92,10 @@ teardown() {
   assert_success
 
   # Check for specific data
-  run grep "amd64,bookworm,true" "$OUTPUT_DIR/latest.csv"
+  run grep '"amd64","bookworm",true' "$OUTPUT_DIR/latest.csv"
   assert_success
 
-  run grep "amd64,trixie,false" "$OUTPUT_DIR/latest.csv"
+  run grep '"amd64","trixie",false' "$OUTPUT_DIR/latest.csv"
   assert_success
 }
 
