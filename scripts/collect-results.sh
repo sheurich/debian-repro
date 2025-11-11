@@ -125,7 +125,7 @@ fetch_github_results() {
 #######################################
 fetch_gcp_results() {
   local serial="$1"
-  local project_id="$2"
+  local _project_id="$2"
   local bucket_path="$3"
   local output_dir="$4"
 
