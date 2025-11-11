@@ -14,7 +14,7 @@ Verify continuously that official Debian Docker images reproduce bit-for-bit fro
 #### Security Objectives
 - **Detect** unauthorized modifications through checksum mismatches
 - **Verify** cryptographically that images match their source
-- **Alert** on reproducibility failures within 4 hours
+- **Alert** on reproducibility failures via weekly automated verification
 
 #### Trust Objectives
 - **Eliminate** single points of trust through multi-platform builds
@@ -22,21 +22,21 @@ Verify continuously that official Debian Docker images reproduce bit-for-bit fro
 - **Publish** all verification results publicly in real-time
 
 #### Coverage Objectives
-- **Support** all Debian architectures (amd64, arm64, armhf, i386, ppc64el, s390x)
+- **Support** Debian architectures: amd64, arm64 (default), plus armhf, i386, ppc64el (manual trigger). s390x explicitly unsupported (not in artifacts repo)
 - **Cover** all active Debian suites (stable, testing, unstable, oldstable)
-- **Monitor** continuously with weekly scheduled verification
+- **Monitor** continuously with weekly scheduled verification for default architectures
 
-### Secondary Objectives
+### Secondary Objectives (Planned)
 
-#### Daily Time-Locked Builds
+#### Daily Time-Locked Builds (Future Work)
 - **Produce** daily base images for immediate consumption
 - **Detect** drift independent of official release cadence
 - **Build** at midnight UTC with consistent epoch timestamps
 
-#### Enhanced Verification
-- **Cross-validate** with both Debuerreotype and mmdebstrap toolchains
-- **Expand** validation through GitLab CI and standalone validators
-- **Support** community-operated verification nodes
+#### Enhanced Verification (Future Work)
+- **Cross-validate** with both Debuerreotype and mmdebstrap toolchains (planned)
+- **Expand** validation through GitLab CI and standalone validators (planned)
+- **Support** community-operated verification nodes (planned)
 
 ### Design Principles
 - **Deterministic**: Identical inputs produce identical outputs
@@ -49,19 +49,28 @@ Verify continuously that official Debian Docker images reproduce bit-for-bit fro
 ### What This System Defends Against
 
 #### Supply Chain Attacks We Detect
-- **Compromised Build Infrastructure**: Malicious modifications during official builds
-- **Registry Tampering**: Images modified between build and distribution
-- **Backdoor Injection**: Unauthorized code added to base images
-- **Package Substitution**: Legitimate packages replaced with malicious ones
-- **Build Process Manipulation**: Build tool changes altering output
-- **Toolchain Compromise**: Backdoored Debuerreotype detected via mmdebstrap
-- **Single-CI Compromise**: Malicious CI platform detected via consensus failure
 
-#### Attack Scenarios Detected
-1. **Targeted Attacks**: Nation-state actors compromising specific Debian builds
-2. **Insider Threats**: Malicious maintainers injecting backdoors
-3. **Infrastructure Compromise**: Docker Hub or build server breaches
-4. **Man-in-the-Middle**: Image substitution during distribution
+*Currently Implemented:*
+- **Build Process Tampering**: Detects unauthorized modifications in the official Debuerreotype build process
+- **Artifacts Repository Changes**: Identifies unexpected checksum changes in `docker-debian-artifacts`
+- **Single-CI Compromise**: Malicious CI platform detected via consensus failure between GitHub Actions and Google Cloud Build
+- **Package Substitution**: Changes in package versions affect reproducibility of builds
+
+*Planned (Not Yet Implemented):*
+- **Registry Tampering**: Images modified between artifacts repository and Docker Hub (requires Docker Hub registry verification)
+- **Toolchain Compromise**: Backdoored Debuerreotype detected via mmdebstrap cross-validation
+
+**Current Limitation**: The `docker-debian-artifacts` repository is our single point of trust. We verify build reproducibility but do not detect tampering between this repository and Docker Hub. Registry verification is planned future work.
+
+#### Attack Scenarios
+*Currently Detected:*
+1. **Build Process Compromise**: Changes to official build toolchain or parameters
+2. **CI Platform Compromise**: Malicious results from single CI system caught by consensus
+
+*Not Currently Detected (Planned):*
+1. **Docker Hub Compromise**: Image tampering after publication to registry
+2. **Artifacts Repository Compromise**: Requires independent Docker Hub verification
+3. **Toolchain-Specific Backdoors**: Requires mmdebstrap cross-validation
 
 ### What This System Does NOT Defend Against
 
@@ -73,13 +82,16 @@ Verify continuously that official Debian Docker images reproduce bit-for-bit fro
 
 ### Detection Capabilities
 
-#### How We Reveal Tampering
-- **Checksum Mismatch**: Modifications break SHA256 verification
-- **Cross-Platform Divergence**: Tampering affects single platforms
-- **Temporal Anomalies**: Unexpected changes between verifications
-- **Pattern Disruption**: Selective architecture or suite tampering
-- **Toolchain Disagreement**: Debuerreotype and mmdebstrap differ
-- **Consensus Failure**: CI systems fail 2-of-N threshold
+#### How We Reveal Tampering (Currently Implemented)
+- **Checksum Mismatch**: Modifications to artifacts repository break SHA256 verification
+- **Cross-Platform Divergence**: Single CI platform compromise detected when platforms disagree
+- **Temporal Anomalies**: Unexpected checksum changes in artifacts repository between verifications
+- **Consensus Failure**: CI systems fail 2-of-N threshold (GitHub Actions + Google Cloud Build)
+
+#### Planned Detection Capabilities
+- **Registry Tampering Detection**: Direct Docker Hub verification to catch post-publication modifications
+- **Toolchain Disagreement**: Debuerreotype and mmdebstrap produce different outputs, indicating tool-specific compromise
+- **Pattern Disruption**: Selective architecture or suite tampering across multiple verification dimensions
 
 #### Response to Detection
 When reproducibility fails, we:
@@ -94,11 +106,13 @@ You must trust:
 - **Debian Source Packages**: We verify the build process, not package contents
 - **Cryptographic Functions**: SHA256 must remain cryptographically secure
 - **Build Environment**: Our verification infrastructure must be secure
+- **Artifacts Repository**: The `docker-debian-artifacts` repository is our current single point of trust (Docker Hub verification planned)
 
 We reduce trust requirements through:
-- **Dual-Toolchain Verification**: Both Debuerreotype and mmdebstrap must agree
-- **Multi-Perspective Consensus**: Multiple CI platforms must reach consensus
-- **Independent Validators**: Community-operated verification distributes trust
+- **Multi-Perspective Consensus**: Multiple CI platforms (GitHub Actions and Google Cloud Build) must reach consensus
+- **Planned: Dual-Toolchain Verification**: Both Debuerreotype and mmdebstrap must agree (future work)
+- **Planned: Independent Validators**: Community-operated verification distributes trust (future work)
+- **Planned: Registry Verification**: Direct Docker Hub checks to eliminate artifacts repository as single point of trust
 
 ### Why Reproducible Builds Matter for Security
 
@@ -107,6 +121,206 @@ Reproducible builds transform supply chain security from "trust the builder" to 
 - **Distributes** trust across multiple parties
 - **Enables** independent verification at scale
 - **Creates** forensic audit trails
+
+## Trust Dependencies
+
+This verification system requires trust in several components. Understanding these dependencies helps assess the security model and identify potential compromise vectors.
+
+### Infrastructure Dependencies
+
+**GitHub Actions**
+- **Purpose**: Primary CI/CD platform for automated verification
+- **Trust Required**: GitHub's infrastructure, runner images, action implementations
+- **Mitigation**: Cross-validate results with Google Cloud Build and GitLab CI
+- **Risk**: Compromised GitHub could alter build artifacts or verification results
+- **Monitoring**: Multi-platform consensus detects single-platform tampering
+
+**Google Cloud Build**
+- **Purpose**: Independent verification platform for consensus validation
+- **Trust Required**: GCP infrastructure, build environments, artifact storage
+- **Mitigation**: Compare checksums with GitHub Actions results
+- **Risk**: Compromised GCP could provide false verification results
+- **Monitoring**: Consensus validator detects cross-platform disagreements
+
+**GitLab CI**
+- **Purpose**: Additional independent verification perspective
+- **Trust Required**: GitLab infrastructure, runner environments, container registry
+- **Mitigation**: Participate in multi-platform consensus
+- **Risk**: Single CI compromise detected through consensus failure
+- **Monitoring**: 2-of-N threshold requires multiple platforms to agree
+
+**Standalone Validators**
+- **Purpose**: Community-operated verification nodes outside CI systems
+- **Trust Required**: Individual operators, self-hosted infrastructure
+- **Mitigation**: Distributed trust model - no single operator controls verification
+- **Risk**: Malicious validator could report false results (detected by consensus)
+- **Monitoring**: Results aggregated with CI platforms for validation
+
+### Build Tool Dependencies
+
+**Debuerreotype**
+- **Purpose**: Official Debian Docker image builder
+- **Trust Required**: Debuerreotype maintainers, GitHub repository integrity
+- **Mitigation**: Pin to specific version (v0.16), cross-validate with mmdebstrap
+- **Risk**: Backdoored tool could produce compromised images
+- **Monitoring**: Dual-toolchain verification detects tool-specific tampering
+- **Version Control**: Git tag verification, SHA verification of cloned repository
+
+**mmdebstrap** (Planned)
+- **Purpose**: Independent debootstrap alternative for cross-validation
+- **Trust Required**: mmdebstrap maintainers, package integrity
+- **Mitigation**: Must produce bit-identical output to Debuerreotype
+- **Risk**: Dual compromise less likely than single tool compromise
+- **Monitoring**: Toolchain parity checks detect disagreements
+
+### Data Source Dependencies
+
+**snapshot.debian.org**
+- **Purpose**: Time-locked Debian package archive for reproducible builds
+- **Trust Required**: Debian infrastructure, package archive integrity
+- **Mitigation**: Cryptographic verification of downloaded packages
+- **Risk**: Compromised archive could serve malicious packages
+- **Monitoring**: Multiple verifiers accessing same snapshots detect inconsistencies
+- **Verification**: APT secure package signing, GPG verification
+
+**debuerreotype/docker-debian-artifacts**
+- **Purpose**: Official source of build parameters and reference checksums
+- **Trust Required**: Debian Docker team, GitHub repository integrity
+- **Mitigation**: Repository is read-only for us; any tampering fails verification
+- **Risk**: Compromised repository could provide incorrect reference checksums
+- **Monitoring**: Historical tracking detects unexpected parameter changes
+- **Validation**: Smart verification system tracks serial numbers and epoch timestamps
+
+### Container Image Dependencies
+
+**tonistiigi/binfmt**
+- **Purpose**: QEMU registration for cross-architecture emulation
+- **Trust Required**: Docker official images, Tõnis Tiigi (maintainer)
+- **Image Reference**: `tonistiigi/binfmt@sha256:e06789462ac7e2e096b53bfd9e607412426850227afeb1d0f5dfa48a731e0ba5`
+- **Mitigation**: Digest pinning prevents tag substitution attacks
+- **Risk**: Runs with `--privileged` flag - malicious image could compromise host
+- **Security Measures**:
+  - User confirmation required before execution (bypass with `SKIP_CONFIRM=true` for CI)
+  - Container runs with `--rm` flag and exits immediately
+  - Only executed for cross-architecture builds, not for verification itself
+  - Periodic digest updates required (manual process to review changes)
+- **Alternatives**: System-level QEMU installation, native-architecture builds only
+
+**multiarch/qemu-user-static**
+- **Purpose**: Fallback QEMU registration for Linux systems
+- **Trust Required**: Multiarch project maintainers, Docker Hub
+- **Image Reference**: `multiarch/qemu-user-static@sha256:7ebfd8bcb1f9d95a85e876ef9edc06e84e8a0d7f355a96e8069e1b13eb98c66b`
+- **Mitigation**: Digest pinning, used only as fallback on Linux
+- **Risk**: Same privileged access concerns as tonistiigi/binfmt
+- **Security Measures**: Same as tonistiigi/binfmt
+
+### Registry Dependencies
+
+**Docker Hub**
+- **Purpose**: Official Debian image distribution, reference artifact source
+- **Trust Required**: Docker Inc., registry infrastructure
+- **Mitigation**: Verification system proves images match source code
+- **Risk**: Compromised registry detected through checksum mismatches
+- **Monitoring**: Our entire system exists to verify Docker Hub integrity
+
+**GitHub Container Registry (GHCR)**
+- **Purpose**: Storage for daily time-locked builds (planned)
+- **Trust Required**: GitHub infrastructure, attestation signing
+- **Mitigation**: Signed attestations, consensus requirement before publishing
+- **Risk**: Registry compromise detected through signature verification
+- **Monitoring**: Published only after multi-platform consensus
+
+### Privileged Capabilities Requirements
+
+**Why SYS_ADMIN Capability Is Required**
+
+The `SYS_ADMIN` capability is necessary for Debuerreotype's core operations:
+
+1. **chroot Operations**
+   - Required to change root directory for isolated filesystem operations
+   - Debuerreotype builds Debian rootfs using chroot to create clean environments
+   - Without SYS_ADMIN, chroot() system call fails with EPERM
+
+2. **Mount Operations**
+   - Required to mount proc, sys, dev filesystems within build environment
+   - Necessary for debootstrap to function correctly
+   - Enables proper package installation and configuration
+
+3. **Namespace Operations**
+   - Required for creating isolated build environments
+   - Prevents build artifacts from affecting host system
+   - Ensures reproducibility through environment isolation
+
+**Security Configuration**
+
+Docker container security settings for builds:
+```bash
+docker run \
+  --cap-add SYS_ADMIN \     # Required for chroot/mount operations
+  --cap-drop SETFCAP \      # Drop unnecessary capability
+  --security-opt seccomp=unconfined \    # Allow mount/chroot syscalls
+  --security-opt apparmor=unconfined \   # Allow filesystem operations
+  --tmpfs /tmp:dev,exec,suid,noatime \   # Fast temporary storage
+  ...
+```
+
+**Capability Risk Assessment**
+
+- **SYS_ADMIN**: Powerful capability but required for legitimate build operations
+- **Mitigation**: Container isolation, read-only host mounts where possible
+- **Scope**: Applied only to build containers, not to privileged helper containers
+- **Alternatives**: None - chroot is fundamental to debootstrap/Debuerreotype
+
+**Privileged vs Capabilities**
+
+- **Privileged containers** (--privileged): Used only for binfmt/QEMU setup
+  - Modifies host kernel settings (binfmt_misc)
+  - Runs briefly and exits immediately
+  - Requires user confirmation in interactive mode
+
+- **Capability grants** (--cap-add): Used for builds themselves
+  - Limited to specific capabilities (SYS_ADMIN)
+  - Drops unnecessary capabilities (SETFCAP)
+  - Isolated within container namespace
+
+### Trust Reduction Strategies
+
+**Multi-Perspective Consensus**
+- Minimum 2-of-N agreement required for accepting results
+- Single compromised CI platform detected through consensus failure
+- Independent infrastructure reduces single point of failure
+
+**Dual-Toolchain Verification** (Planned)
+- Both Debuerreotype and mmdebstrap must produce identical output
+- Compromising both tools independently is significantly harder
+- Toolchain disagreement triggers immediate investigation
+
+**Digest Pinning**
+- Helper containers referenced by immutable SHA256 digests
+- Prevents tag substitution attacks
+- Requires manual review before digest updates
+
+**Transparent Operation**
+- All verification results published in real-time
+- Build logs and artifacts available for audit
+- Dashboard shows per-platform verification status
+
+**Community Validation**
+- Anyone can run verification locally
+- Independent validators contribute to consensus
+- Distributed trust model prevents central authority compromise
+
+### What You Still Must Trust
+
+Despite mitigation strategies, fundamental trust requirements remain:
+
+1. **Debian Source Packages**: We verify the build process, not package contents
+2. **Cryptographic Functions**: SHA256 must remain cryptographically secure
+3. **Linux Kernel**: Host kernel must correctly implement isolation
+4. **CPU Architecture**: Processor must execute instructions faithfully
+5. **Our Verification Scripts**: Open source, but you must review or trust maintainers
+
+The system reduces trust requirements but cannot eliminate them entirely. Reproducible builds shift trust from "the official builder" to "mathematics and independent verification."
 
 ## Architecture
 
@@ -232,16 +446,17 @@ gh workflow run consensus-validator.yml -f serial=20251020
 gh run watch
 ```
 
-**Status**: Fully operational as of commit 3ba3cbf (November 2025)
+**Status**: Fully operational consensus validation across 2 independent platforms (November 2025)
+- GitHub Actions and Google Cloud Build require 2-of-2 agreement
 - Tested with 8 suite/architecture combinations
-- Achieved 100% consensus across GitHub Actions and Google Cloud Build
-- Both scripts exit with proper codes and generate valid JSON reports
+- Achieved 100% consensus in testing
+- Both collection and comparison scripts exit with proper codes and generate valid JSON reports
 
-**Dual-Toolchain Verification**
+**Dual-Toolchain Verification (Planned)**
 - Both Debuerreotype and mmdebstrap must produce identical outputs
 - Toolchain parity checked within each perspective
 - Cross-toolchain validation detects tool-specific compromises
-- *Status: Planned - mmdebstrap integration pending*
+- *Status: Future work - mmdebstrap integration not yet implemented*
 
 ### Toolchain Integration
 
@@ -252,11 +467,12 @@ gh run watch
 - Exact `SOURCE_DATE_EPOCH` timestamp
 - Snapshot.debian.org for package version locking
 
-**mmdebstrap**
+**mmdebstrap (Planned)**
 - Independent debootstrap alternative
 - Produces bit-identical outputs through shared fixup process
 - Same input parameters as Debuerreotype
 - Provides toolchain diversity for security
+- *Status: Future work - not yet integrated*
 
 ### Public Dashboard
 
@@ -348,17 +564,17 @@ We build on GitHub Actions and Google Cloud Build daily, comparing checksums to 
 
 ### Smart Verification
 
-We monitor official artifacts every 4 hours, triggering builds only when we detect changes and tracking state to prevent redundant verification.
+We run weekly automated verification on Sundays at 00:00 UTC, with manual triggers available for on-demand verification.
 
 ### Platform Consistency Validation
 
-Each day we validate platform consistency:
+Weekly automated verification validates platform consistency:
 1. Build with current timestamp on all platforms
 2. Compare checksums between platforms
 3. Track platform-specific success rates
 4. Update cross-platform match percentage
 
-## Daily Builds
+## Daily Builds (Future Work)
 
 ### Purpose
 
@@ -366,7 +582,7 @@ Daily time-locked builds serve two functions:
 - **Provide** fresh base images for immediate use
 - **Detect** drift independent of official releases
 
-### Implementation
+### Implementation (Planned)
 
 **Build Schedule**
 - Triggers daily at midnight UTC
@@ -379,15 +595,17 @@ Daily time-locked builds serve two functions:
 - Example: `debian-repro:bookworm-20251109-amd64`
 - Distinguishes from official Debian images
 
-**Verification Requirements**
+**Verification Requirements (Planned)**
 - 2-of-N CI platform consensus required
-- Debuerreotype and mmdebstrap must match
+- Debuerreotype and mmdebstrap must match (when dual toolchain is implemented)
 - Failed consensus triggers investigation only
 
 **Publishing and Retention**
 - OCI images pushed to container registry
 - Retention based on usage patterns
 - Signed attestations included
+
+*Status: Not yet implemented - weekly verification currently in place*
 
 ## Infrastructure
 
@@ -504,12 +722,12 @@ Each build runs in an isolated Docker container with specific security configura
 ## Success Metrics
 
 ### Security Metrics
-- **Tamper Detection**: < 4 hours from release
+- **Tamper Detection**: Weekly automated verification (Sundays at 00:00 UTC)
 - **Supply Chain Coverage**: 100% of official images
 - **Cryptographic Verification**: SHA256 for all architectures/suites
 - **False Positive Rate**: 0% when uncompromised
-- **Toolchain Parity**: > 99% agreement rate
-- **Consensus Achievement**: > 95% reach 2-of-N threshold (Active: achieved 100% in November 2025 testing)
+- **Toolchain Parity**: > 99% agreement rate (Planned - mmdebstrap not yet integrated)
+- **Consensus Achievement**: 100% in November 2025 testing (Active: 2-of-2 agreement between GitHub Actions and Google Cloud Build)
 
 ### Operational Metrics
 - **Multi-Platform Consensus**: > 99% agreement across CI systems (Active: GitHub Actions + Google Cloud Build)
@@ -521,8 +739,8 @@ Each build runs in an isolated Docker container with specific security configura
 - **Automation Coverage**: 100% hands-free operation
 
 ### Trust Metrics
-- **Independent Verification**: 2+ platforms required for consensus
-- **Toolchain Diversity**: 2 independent build tools
+- **Independent Verification**: 2 platforms currently providing consensus (GitHub Actions and Google Cloud Build)
+- **Toolchain Diversity**: 2 independent build tools (Planned - currently Debuerreotype only)
 - **Public Auditability**: < 1 minute to publish results
 - **Historical Evidence**: 30 days of verification history
 

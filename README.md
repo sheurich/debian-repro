@@ -18,13 +18,13 @@ We detect supply chain attacks against official Debian Docker images by rebuildi
 ### How We Achieve This
 - **Rebuild** images from source using the official toolchain (Debuerreotype)
 - **Compare** SHA256 checksums across multiple platforms
-- **Detect** changes within hours through automated verification
+- **Detect** changes weekly through automated verification
 - **Publish** real-time verification status at https://sheurich.github.io/debian-repro/
 - **Require** consensus from multiple independent CI systems and validators
 
 ### Additional Capabilities
-- **Daily Builds**: Fresh base images at midnight UTC for immediate use and drift detection
-- **Dual Toolchains**: Debuerreotype and mmdebstrap must produce identical outputs
+- **Planned: Daily Builds**: Fresh base images at midnight UTC for immediate use and drift detection
+- **Planned: Dual Toolchains**: Debuerreotype and mmdebstrap must produce identical outputs
 - **Consensus Required**: 2+ independent CI systems must agree before accepting results
 
 ### Why This Matters
@@ -35,19 +35,32 @@ Software supply chain attacks threaten millions of containers built on Debian ba
 **Multi-Perspective CI System:**
 - **Google Cloud Build** (`cloudbuild.yaml`)
 - **GitHub Actions** (`.github/workflows/reproducible-debian-build.yml`)
-- **GitLab CI** (`.gitlab-ci.yml`)
-- **Standalone Validators** - Independent servers and self-hosted runners
+- **GitLab CI** (planned)
+- **Standalone Validators** (planned) - Independent servers and self-hosted runners
 
 **Verification Toolchains:**
 - **Debuerreotype v0.16** - Official Docker Hub Debian image builder
-- **mmdebstrap** - Independent toolchain for cross-validation
-- Verification passes only when both tools produce identical outputs
+- **mmdebstrap** (planned) - Independent toolchain for cross-validation
 
 **Verification Method:**
 - Fetch official build parameters from `debuerreotype/docker-debian-artifacts` repository
 - Build using identical timestamp (`SOURCE_DATE_EPOCH`)
-- Compare SHA256 checksums between local build and official artifacts
+- Compare SHA256 checksums between local build and official artifacts repository
 - Fail builds when checksums differ
+
+**What Gets Verified:**
+
+*Currently Implemented:*
+- Build process reproducibility: Confirms the official Debuerreotype toolchain produces consistent outputs when given identical inputs
+- Artifacts repository integrity: Verifies checksums in `docker-debian-artifacts` match our independent builds
+- Cross-platform consensus: Multiple CI systems (GitHub Actions, Google Cloud Build) must agree on checksums
+
+*Not Yet Implemented (Planned):*
+- Docker Hub registry verification: Direct comparison of Docker Hub images to artifacts repository (would detect registry tampering)
+- Dual toolchain validation: Cross-verification with mmdebstrap to detect Debuerreotype-specific compromises
+
+**Current Trust Model:**
+The `docker-debian-artifacts` repository is the single point of trust. This system proves the build process is reproducible but does not detect tampering between the artifacts repository and Docker Hub registry. Registry verification is planned.
 
 ## Quick Start
 
@@ -160,7 +173,10 @@ gh run download <run-id> -n consensus-report
 
 ## Key Configuration
 
-**Supported Architectures:** amd64, arm64, armhf, i386, ppc64el, s390x
+**Architecture Support:**
+- **Default (automated weekly builds)**: amd64, arm64
+- **Available on manual trigger**: amd64, arm64, armhf, i386, ppc64el
+- **Explicitly unsupported**: s390x (not yet available in official artifacts repository)
 
 **Supported Suites:**
 - `forky` (testing)
