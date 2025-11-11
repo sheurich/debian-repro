@@ -1,1 +1,2 @@
 architecture,suite,reproducible,sha256,build_time_seconds,timestamp,serial
+"amd64","bookworm",true,"b06055e3b5ceb5d30ece2923109790b54477afad47e4790739a35e89c5ac30ba",0,"2025-11-11T22:20:32Z","20251103"
