@@ -62,6 +62,51 @@ Docker Desktop supports cross-architecture builds, but Colima provides more reli
 # Parallel builds: parallel
 ```
 
+## Security Notice
+
+**This tool requires privileged Docker access for cross-architecture builds.**
+
+### What Privileged Access Means
+
+When building for non-native architectures (e.g., building AMD64 images on Apple Silicon), `verify-local.sh` automatically installs CPU emulation using:
+
+```bash
+docker run --rm --privileged tonistiigi/binfmt --install <arch>
+```
+
+The `--privileged` flag grants the container:
+- Full access to host devices
+- Ability to modify kernel settings (specifically, binfmt_misc handlers)
+- Capability to load kernel modules
+
+### Why Privileged Access Is Needed
+
+Cross-architecture builds require registering QEMU emulators with the Linux kernel's binfmt_misc system. This kernel-level operation allows Docker to automatically invoke QEMU when running binaries for foreign architectures.
+
+**Without privileged access**, you can only build for your native architecture.
+
+### Security Implications
+
+Running privileged containers carries risk:
+- The container can escape sandbox restrictions
+- Malicious images could compromise the host system
+- You must trust the container image and its maintainers
+
+### What We Do To Minimize Risk
+
+1. **Use well-known, trusted images**: `tonistiigi/binfmt` (Docker official) and `multiarch/qemu-user-static` (community standard)
+2. **Prompt for confirmation**: Script asks before running privileged containers (set `SKIP_CONFIRM=true` to bypass in CI)
+3. **Immediate cleanup**: Containers run with `--rm` flag and exit immediately after setup
+4. **Limited scope**: Privileged access only for architecture setup, not for builds themselves
+5. **Optional operation**: You can skip cross-architecture builds and verify only your native architecture
+
+### Alternatives
+
+If you cannot grant privileged access:
+- Build only for your native architecture
+- Use a CI system (GitHub Actions, Google Cloud Build) for cross-architecture verification
+- Manually install QEMU user-mode emulation on the host system
+
 ## Quick Start
 
 ```bash

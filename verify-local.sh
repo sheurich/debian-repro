@@ -15,6 +15,79 @@ fi
 
 readonly COMPONENT="verify-local"
 
+# Pinned container images for privileged operations (digest-pinned for security)
+# These images require --privileged flag to configure kernel binfmt_misc handlers
+# Update digests periodically via: docker pull <image> && docker inspect --format='{{.RepoDigests}}' <image>
+readonly BINFMT_IMAGE="tonistiigi/binfmt@sha256:e06789462ac7e2e096b53bfd9e607412426850227afeb1d0f5dfa48a731e0ba5"
+readonly QEMU_IMAGE="multiarch/qemu-user-static@sha256:7ebfd8bcb1f9d95a85e876ef9edc06e84e8a0d7f355a96e8069e1b13eb98c66b"
+
+# Allow skipping confirmation prompts (useful for CI/automated environments)
+SKIP_CONFIRM="${SKIP_CONFIRM:-false}"
+
+#######################################
+# Confirm privileged container execution
+# Arguments:
+#   $1 - Architecture being installed
+#   $2 - Image reference
+# Returns:
+#   0 if confirmed or SKIP_CONFIRM=true, 1 if denied
+#######################################
+confirm_privileged_operation() {
+  local arch="$1"
+  local image="$2"
+
+  # Skip prompt if configured for automated use
+  if [ "$SKIP_CONFIRM" = "true" ]; then
+    log_debug "$COMPONENT" "Skipping confirmation (SKIP_CONFIRM=true)"
+    return 0
+  fi
+
+  echo ""
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo "⚠️  PRIVILEGED CONTAINER REQUIRED"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo ""
+  echo "To build for architecture '$arch', we need to configure CPU emulation."
+  echo ""
+  echo "This requires running a container with the --privileged flag:"
+  echo "  Image: $image"
+  echo ""
+  echo "PRIVILEGED ACCESS grants the container:"
+  echo "  • Full access to host devices"
+  echo "  • Ability to modify kernel settings (binfmt_misc handlers)"
+  echo "  • Capability to load kernel modules"
+  echo ""
+  echo "WHAT THIS DOES:"
+  echo "  • Registers QEMU emulators with the Linux kernel"
+  echo "  • Enables Docker to run non-native architecture binaries"
+  echo "  • Container exits immediately after setup (runs with --rm flag)"
+  echo ""
+  echo "SECURITY CONSIDERATIONS:"
+  echo "  • You must trust this container image and its maintainers"
+  echo "  • Malicious images could compromise your host system"
+  echo "  • This is a well-known, community-trusted image"
+  echo ""
+  echo "ALTERNATIVES:"
+  echo "  • Build only for your native architecture (no privileged access needed)"
+  echo "  • Use CI/CD for cross-architecture builds"
+  echo "  • Set SKIP_CONFIRM=true to bypass this prompt (CI/automation only)"
+  echo ""
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo ""
+
+  # Prompt for confirmation
+  read -rp "Do you want to proceed? [y/N] " response
+  case "$response" in
+    [yY][eE][sS]|[yY])
+      return 0
+      ;;
+    *)
+      log_info "$COMPONENT" "Privileged operation cancelled by user"
+      return 1
+      ;;
+  esac
+}
+
 # Detect native architecture
 detect_native_arch() {
   local machine
@@ -99,6 +172,7 @@ Environment variables:
   ARCH                  Same as --arch
   SUITES                Same as --suites
   PARALLEL              Set to "true" for parallel builds
+  SKIP_CONFIRM          Set to "true" to skip privileged container confirmation (CI use)
   DEBUG                 Set to "1" for verbose output
 
 Examples:
@@ -152,18 +226,34 @@ check_prerequisites() {
       log_warn "$COMPONENT" "Architecture '$ARCH' not detected in supported list"
       log_info "$COMPONENT" "Attempting to automatically enable $ARCH emulation..."
 
-      # Try to install binfmt for this architecture
+      # Request user confirmation before running privileged container
+      # This modifies kernel binfmt_misc handlers to enable QEMU emulation
+      if ! confirm_privileged_operation "$ARCH" "$BINFMT_IMAGE"; then
+        log_error "$COMPONENT" "Cannot proceed without privileged access for cross-architecture builds"
+        log_error "$COMPONENT" "Alternatives:"
+        log_error "$COMPONENT" "  1. Build for native architecture only: --arch $native_arch"
+        log_error "$COMPONENT" "  2. Use CI/CD for cross-architecture verification"
+        log_error "$COMPONENT" "  3. Set SKIP_CONFIRM=true for automated environments"
+        exit 1
+      fi
+
+      # Try to install binfmt for this architecture using digest-pinned image
       local install_output
       install_output=$(mktemp)
 
-      if docker run --privileged --rm tonistiigi/binfmt --install "$ARCH" > "$install_output" 2>&1; then
+      # Run privileged container to register QEMU emulators with kernel
+      # --privileged: Required to write to /proc/sys/fs/binfmt_misc
+      # --rm: Container is removed immediately after execution
+      # Image is digest-pinned to prevent supply chain attacks
+      if docker run --privileged --rm "$BINFMT_IMAGE" --install "$ARCH" > "$install_output" 2>&1; then
         # Check if installation was successful
         if grep -q "installing:.*OK\|already registered" "$install_output"; then
           log_debug "$COMPONENT" "binfmt installation completed"
 
           # Verify installation worked by querying binfmt directly (buildx caches platform detection)
+          # Uses same digest-pinned image for consistency
           local binfmt_check
-          binfmt_check=$(docker run --privileged --rm tonistiigi/binfmt 2>/dev/null)
+          binfmt_check=$(docker run --privileged --rm "$BINFMT_IMAGE" 2>/dev/null)
 
           # Check if target architecture is in the supported list from binfmt
           if echo "$binfmt_check" | jq -r '.supported[]?' 2>/dev/null | grep -q "linux/$ARCH"; then
@@ -202,23 +292,23 @@ check_prerequisites() {
             log_error "$COMPONENT" "To enable cross-architecture builds with Colima:"
             log_error "$COMPONENT" "1. Edit ~/.colima/default/colima.yaml and set 'binfmt: true'"
             log_error "$COMPONENT" "2. Restart: colima stop && colima start"
-            log_error "$COMPONENT" "3. Manually run: docker run --privileged --rm tonistiigi/binfmt --install all"
+            log_error "$COMPONENT" "3. Manually run: docker run --privileged --rm $BINFMT_IMAGE --install all"
             ;;
           docker-desktop)
             log_error "$COMPONENT" "To enable cross-architecture builds with Docker Desktop:"
             log_error "$COMPONENT" "1. Open Docker Desktop settings"
             log_error "$COMPONENT" "2. Enable 'Use Virtualization Framework' (disable Rosetta if enabled)"
             log_error "$COMPONENT" "3. Restart Docker Desktop"
-            log_error "$COMPONENT" "4. Manually run: docker run --privileged --rm tonistiigi/binfmt --install all"
+            log_error "$COMPONENT" "4. Manually run: docker run --privileged --rm $BINFMT_IMAGE --install all"
             ;;
           orbstack)
             log_error "$COMPONENT" "OrbStack should support multi-architecture by default"
-            log_error "$COMPONENT" "Try manually: docker run --privileged --rm tonistiigi/binfmt --install all"
+            log_error "$COMPONENT" "Try manually: docker run --privileged --rm $BINFMT_IMAGE --install all"
             ;;
           *)
             log_error "$COMPONENT" "To enable cross-architecture builds:"
             log_error "$COMPONENT" "Install qemu-user-static or enable binfmt support"
-            log_error "$COMPONENT" "Run: docker run --privileged --rm tonistiigi/binfmt --install all"
+            log_error "$COMPONENT" "Run: docker run --privileged --rm $BINFMT_IMAGE --install all"
             ;;
         esac
 
@@ -230,10 +320,14 @@ check_prerequisites() {
     fi
   fi
 
-  # Setup QEMU on Linux if needed (for compatibility)
+  # Setup QEMU on Linux if needed (for compatibility with older setups)
+  # This is a fallback for Linux systems that may not have binfmt configured via tonistiigi/binfmt
   if [ "$os_name" = "Linux" ] && [ "$ARCH" != "$native_arch" ]; then
     log_debug "$COMPONENT" "Setting up QEMU for $ARCH emulation on Linux..."
-    if ! docker run --rm --privileged multiarch/qemu-user-static --reset -p yes >/dev/null 2>&1; then
+    # Uses digest-pinned image for security
+    # --privileged: Required to register QEMU interpreters with kernel
+    # --rm: Container removed immediately after execution
+    if ! docker run --rm --privileged "$QEMU_IMAGE" --reset -p yes >/dev/null 2>&1; then
       log_debug "$COMPONENT" "QEMU setup command failed (may already be configured)"
     fi
   fi
