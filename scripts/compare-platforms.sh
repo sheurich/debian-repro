@@ -16,24 +16,20 @@ usage() {
 Usage: $(basename "$0") [OPTIONS]
 
 Compare verification results from multiple platforms and determine consensus.
+Full consensus required: ALL platforms must produce identical checksums.
 
 Options:
   --results-dir DIR         Directory containing platform results (default: consensus-results)
   --output FILE             Output file for consensus report (default: consensus-report.json)
-  --threshold N             Minimum platforms required for consensus (default: 2)
-  --require-match           Require all platforms to match (strict consensus)
   --generate-evidence       Generate witness evidence for failures
   --help                    Display this help message
 
 Examples:
-  # Compare results with 2-of-N consensus
+  # Compare results (requires full consensus)
   $(basename "$0") --results-dir consensus-results
 
-  # Strict mode: all platforms must match
-  $(basename "$0") --results-dir consensus-results --require-match
-
-  # Custom threshold
-  $(basename "$0") --results-dir consensus-results --threshold 3
+  # With evidence generation for disagreements
+  $(basename "$0") --results-dir consensus-results --generate-evidence
 EOF
 }
 
@@ -146,25 +142,12 @@ compare_suite_arch() {
   local agreement_count=0
 
   if [ "$unique_checksums" -eq 1 ]; then
-    # All platforms agree
+    # All platforms agree (unanimous consensus required)
     consensus=true
     consensus_checksum="${checksums[0]}"
     agreement_count="${#checksums[@]}"
-  elif [ "$unique_checksums" -gt 1 ]; then
-    # Find majority
-    local checksum_counts
-    checksum_counts=$(printf '%s\n' "${checksums[@]}" | sort | uniq -c | sort -rn)
-
-    local max_count
-    max_count=$(echo "$checksum_counts" | head -1 | awk '{print $1}')
-
-    if [ "$max_count" -ge 2 ]; then
-      # At least 2 platforms agree
-      consensus=true
-      consensus_checksum=$(echo "$checksum_counts" | head -1 | awk '{print $2}')
-      agreement_count="$max_count"
-    fi
   fi
+  # Note: Partial agreement is not sufficient - all platforms must match
 
   # Build comparison result
   jq -n \
@@ -262,8 +245,6 @@ generate_witness_evidence() {
 main() {
   local results_dir="consensus-results"
   local output_file="consensus-report.json"
-  local threshold=2
-  local require_match=false
   local generate_evidence=false
 
   # Parse arguments
@@ -276,14 +257,6 @@ main() {
       --output)
         output_file="$2"
         shift 2
-        ;;
-      --threshold)
-        threshold="$2"
-        shift 2
-        ;;
-      --require-match)
-        require_match=true
-        shift
         ;;
       --generate-evidence)
         generate_evidence=true
@@ -374,15 +347,9 @@ main() {
   local total_combinations
   total_combinations=$(echo "$comparisons" | jq 'length')
 
+  # Full consensus required: ALL platforms must agree on ALL combinations
   local overall_consensus=false
-  if [ "$require_match" = "true" ]; then
-    # Strict mode: all must match
-    [ "$disagreement_count" -eq 0 ] && overall_consensus=true
-  else
-    # Threshold mode: require minimum platforms AND all combinations must achieve consensus
-    # Security: Partial consensus (some suites/archs matching) is insufficient
-    [ "${#result_files[@]}" -ge "$threshold" ] && [ "$disagreement_count" -eq 0 ] && overall_consensus=true
-  fi
+  [ "$disagreement_count" -eq 0 ] && [ "${#result_files[@]}" -ge 2 ] && overall_consensus=true
 
   # Generate final report
   local platforms_list
@@ -391,7 +358,6 @@ main() {
   jq -n \
     --arg timestamp "$(timestamp)" \
     --argjson consensus "$overall_consensus" \
-    --argjson threshold "$threshold" \
     --argjson total "$total_combinations" \
     --argjson agreed "$consensus_count" \
     --argjson disagreed "$disagreement_count" \
@@ -401,8 +367,7 @@ main() {
       timestamp: $timestamp,
       consensus: {
         achieved: $consensus,
-        threshold: $threshold,
-        require_all_match: ($threshold == -1)
+        require_all_match: true
       },
       summary: {
         total_combinations: $total,

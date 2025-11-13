@@ -1,5 +1,6 @@
 # .github/workflows/consensus-validator.yml
-# Validate consensus between GitHub Actions and Google Cloud Build results
+# Validate full consensus between GitHub Actions and Google Cloud Build results
+# Requires ALL platforms to produce identical checksums
 name: Consensus Validator
 
 on:
@@ -147,6 +148,7 @@ jobs:
           fi
 
           # Run comparison with evidence generation
+          # Note: Full consensus required - ALL platforms must produce identical checksums
           mkdir -p consensus-output
 
           if ./scripts/compare-platforms.sh \
