@@ -64,48 +64,23 @@ Docker Desktop supports cross-architecture builds, but Colima provides more reli
 
 ## Security Notice
 
-**This tool requires privileged Docker access for cross-architecture builds.**
+Cross-architecture builds require privileged Docker access to register QEMU emulators with the kernel's binfmt_misc system.
 
-### What Privileged Access Means
+**Command**: `docker run --rm --privileged tonistiigi/binfmt --install <arch>`
 
-When building for non-native architectures (e.g., building AMD64 images on Apple Silicon), `verify-local.sh` automatically installs CPU emulation using:
+**Risk**: Privileged containers can escape sandbox restrictions and compromise the host.
 
-```bash
-docker run --rm --privileged tonistiigi/binfmt --install <arch>
-```
+**Mitigations**:
+- Uses trusted images (`tonistiigi/binfmt`, `multiarch/qemu-user-static`)
+- Prompts for confirmation (bypass with `SKIP_CONFIRM=true` in CI)
+- Containers exit immediately with `--rm` flag
+- Privileged access only for setup, not builds
+- Optional: skip cross-architecture builds
 
-The `--privileged` flag grants the container:
-- Full access to host devices
-- Ability to modify kernel settings (specifically, binfmt_misc handlers)
-- Capability to load kernel modules
-
-### Why Privileged Access Is Needed
-
-Cross-architecture builds require registering QEMU emulators with the Linux kernel's binfmt_misc system. This kernel-level operation allows Docker to automatically invoke QEMU when running binaries for foreign architectures.
-
-**Without privileged access**, you can only build for your native architecture.
-
-### Security Implications
-
-Running privileged containers carries risk:
-- The container can escape sandbox restrictions
-- Malicious images could compromise the host system
-- You must trust the container image and its maintainers
-
-### What We Do To Minimize Risk
-
-1. **Use well-known, trusted images**: `tonistiigi/binfmt` (Docker official) and `multiarch/qemu-user-static` (community standard)
-2. **Prompt for confirmation**: Script asks before running privileged containers (set `SKIP_CONFIRM=true` to bypass in CI)
-3. **Immediate cleanup**: Containers run with `--rm` flag and exit immediately after setup
-4. **Limited scope**: Privileged access only for architecture setup, not for builds themselves
-5. **Optional operation**: You can skip cross-architecture builds and verify only your native architecture
-
-### Alternatives
-
-If you cannot grant privileged access:
-- Build only for your native architecture
-- Use a CI system (GitHub Actions, Google Cloud Build) for cross-architecture verification
-- Manually install QEMU user-mode emulation on the host system
+**Alternatives** (if privileged access unavailable):
+- Build native architecture only
+- Use CI systems (GitHub Actions, Google Cloud Build)
+- Manually install QEMU user-mode emulation on host
 
 ## Quick Start
 
@@ -386,15 +361,12 @@ sudo usermod -aG docker $USER && newgrp docker
 
 ### Build Fails: Requires SYS_ADMIN
 
-Debuerreotype requires elevated privileges. Our scripts handle this automatically. If running Docker manually:
+Debuerreotype requires elevated privileges. Scripts handle this automatically. For manual Docker runs:
 
 ```bash
-docker run \
-  --cap-add SYS_ADMIN \
-  --cap-drop SETFCAP \
+docker run --cap-add SYS_ADMIN --cap-drop SETFCAP \
   --security-opt seccomp=unconfined \
-  --security-opt apparmor=unconfined \
-  ...
+  --security-opt apparmor=unconfined ...
 ```
 
 ### Checksums Don't Match
@@ -427,53 +399,44 @@ rm -rf ./output/*
 
 #### Architecture Not Detected
 
-**Symptoms:**
-- Error: `Architecture 'amd64' is not supported by your Docker environment`
-- Script shows supported architectures but target is missing
+Error: `Architecture 'amd64' is not supported by your Docker environment`
 
-**Solution:**
-The `verify-local.sh` script now **automatically attempts** to install binfmt emulation when it detects a missing architecture. If auto-setup fails, follow the manual steps for your environment:
+**Solution**: `verify-local.sh` automatically installs binfmt emulation. If auto-setup fails:
 
 **macOS (Colima):**
 ```bash
-# Ensure correct configuration
+# Check configuration
 cat ~/.colima/default/colima.yaml | grep -E "(rosetta|binfmt)"
 # Should show: rosetta: false, binfmt: true
 
-# If configuration is wrong, recreate Colima
-colima stop
-colima delete
-colima start  # Defaults: rosetta: false, binfmt: true
+# Recreate if wrong
+colima delete && colima start  # Defaults correct
 
-# Manually install binfmt
+# Or install manually
 docker run --rm --privileged tonistiigi/binfmt --install all
 ```
 
 #### Rosetta Errors (macOS)
 
-**Symptoms:**
-- Error: `rosetta error: Unable to open /proc/self/exe: 40`
-- Error: `Trace/breakpoint trap (core dumped)`
-- Build succeeds initially but fails during package installation
+Error: `rosetta error: Unable to open /proc/self/exe: 40` or `Trace/breakpoint trap`
 
-**Cause:** Rosetta enabled in Colima (conflicts with certain build operations)
+**Cause**: Rosetta enabled in Colima conflicts with build operations.
 
-**Solution:**
+**Solution**:
 ```bash
-# Check if Rosetta is enabled
+# Check Rosetta status
 cat ~/.colima/default/colima.yaml | grep rosetta
 
-# If rosetta: true, disable it
+# Disable and restart
 colima stop
-# Edit ~/.colima/default/colima.yaml and set: rosetta: false
+# Edit ~/.colima/default/colima.yaml: set rosetta: false
 colima start
 
-# Or recreate with correct defaults
-colima delete
-colima start  # Defaults include rosetta: false
+# Or recreate
+colima delete && colima start  # Defaults: rosetta: false
 ```
 
-**Why disable Rosetta?** While Rosetta provides fast x86_64 emulation for macOS, it has known issues accessing `/proc/self/exe` during certain build operations, causing cryptic failures. QEMU (via binfmt) is more compatible with Docker builds.
+**Why**: Rosetta has `/proc/self/exe` access issues during builds. QEMU (binfmt) is more compatible.
 
 #### Linux: Cross-Architecture Setup
 
@@ -488,12 +451,11 @@ docker run --rm amd64/alpine uname -m    # Should output: x86_64
 
 #### Architecture Not Supported
 
-**Symptom:** `Architecture 'X' is not supported by your Docker environment`
+Error: `Architecture 'X' is not supported by your Docker environment`
 
-**Solution:** The verify-local.sh script provides environment-specific guidance. Install binfmt:
+**Solution**: Install binfmt emulation:
 
 ```bash
-# For macOS (Colima), Docker Desktop, or Linux
 docker run --rm --privileged tonistiigi/binfmt --install all
 ```
 

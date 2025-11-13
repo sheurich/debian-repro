@@ -38,10 +38,9 @@ When you need to validate consensus outside the automated workflow:
   --gcp-project debian-repro-oxide \
   --output-dir consensus-results
 
-# 2. Compare and validate
+# 2. Compare and validate (requires full consensus)
 ./scripts/compare-platforms.sh \
   --results-dir consensus-results \
-  --threshold 2 \
   --output consensus-report.json
 
 # 3. View results
@@ -52,23 +51,15 @@ cat consensus-report.json | jq
 
 ### collect-results.sh
 
-Fetches verification reports from multiple platforms.
-
-**Key Features:**
-- Multi-platform collection in single run (fixed in commit 3ba3cbf)
-- Supports GitHub Pages dashboard data
-- Supports GitHub Actions workflow artifacts
-- Supports Google Cloud Storage buckets
-- Automatic retry on transient failures
-- Exit code 0 on successful collection
+Fetches verification reports from multiple platforms. Supports GitHub Pages, GitHub Actions artifacts, and GCS buckets. Automatic retry on failures.
 
 **Parameters:**
 - `--serial SERIAL` - Debian serial to collect (required)
-- `--github-repo REPO` - GitHub repository (format: owner/repo)
+- `--github-repo REPO` - GitHub repository (owner/repo)
 - `--gcp-project PROJECT` - GCP project ID
 - `--gcp-bucket BUCKET` - GCS bucket path (default: PROJECT_cloudbuild/debian-reproducible)
-- `--output-dir DIR` - Directory to save results (default: consensus-results)
-- `--platforms PLATFORMS` - Comma-separated platforms to collect (default: github,gcp)
+- `--output-dir DIR` - Results directory (default: consensus-results)
+- `--platforms PLATFORMS` - Platforms to collect (default: github,gcp)
 
 **Examples:**
 
@@ -92,23 +83,12 @@ Collect from GitHub only:
 
 ### compare-platforms.sh
 
-Validates consensus across collected platform results.
-
-**Key Features:**
-- Automatic format normalization (fixed in commit 3ba3cbf)
-  - GitHub nested format: `.architectures.{arch}.suites.{suite}`
-  - GCP array format: `.results[]`
-- Configurable consensus threshold
-- Detailed comparison reports
-- Witness evidence for disagreements
-- Exit code 0 = consensus achieved
+Validates consensus across platforms. Requires unanimous agreement. Normalizes GitHub nested format and GCP array format automatically.
 
 **Parameters:**
 - `--results-dir DIR` - Directory with collected results (required)
-- `--threshold N` - Minimum platforms that must agree (default: 2)
-- `--strict` - Require all platforms to match (optional)
-- `--output FILE` - Output file for report (default: stdout)
-- `--generate-evidence` - Create witness evidence files for disagreements
+- `--output FILE` - Output file (default: stdout)
+- `--generate-evidence` - Create witness evidence for disagreements
 
 **Examples:**
 
@@ -116,15 +96,6 @@ Basic comparison:
 ```bash
 ./scripts/compare-platforms.sh \
   --results-dir ./consensus-results \
-  --threshold 2 \
-  --output consensus-report.json
-```
-
-Strict mode (all platforms must match):
-```bash
-./scripts/compare-platforms.sh \
-  --results-dir ./consensus-results \
-  --strict \
   --output consensus-report.json
 ```
 
@@ -146,8 +117,7 @@ When platforms agree:
   "timestamp": "2025-11-09T22:41:50Z",
   "consensus": {
     "achieved": true,
-    "threshold": 2,
-    "require_all_match": false
+    "require_all_match": true
   },
   "summary": {
     "total_combinations": 8,
@@ -190,7 +160,7 @@ When platforms disagree:
 {
   "consensus": {
     "achieved": false,
-    "threshold": 2
+    "require_all_match": true
   },
   "summary": {
     "total_combinations": 8,
@@ -253,60 +223,43 @@ gsutil ls gs://debian-repro-oxide_cloudbuild/debian-reproducible/ | head -5
 
 ### Consensus Disagreements
 
-**Symptom:** `compare-platforms.sh` reports consensus failure
+`compare-platforms.sh` reports consensus failure.
 
-**Investigation Steps:**
+**Investigation:**
 
-1. **Check witness evidence:**
+Check witness evidence:
 ```bash
 jq '.comparisons[] | select(.disagreement == true)' consensus-report.json
 ```
 
-2. **Verify build parameters match:**
+Verify parameters match:
 ```bash
-# Compare epochs across platforms
-jq '.epoch' consensus-results/github-*.json
-jq '.epoch' consensus-results/gcp-*.json
+jq '.epoch' consensus-results/*.json
 ```
 
-3. **Review build logs:**
-
-GitHub Actions:
+Review logs:
 ```bash
-gh run list --workflow=reproducible-debian-build.yml --limit 5
+# GitHub Actions
+gh run list --workflow=reproducible-debian-build.yml
 gh run view <run-id> --log
+
+# Google Cloud Build
+gcloud builds list && gcloud builds log <build-id>
 ```
 
-Google Cloud Build:
-```bash
-gcloud builds list --limit 5
-gcloud builds log <build-id>
-```
-
-4. **Check for platform-specific issues:**
-   - Different Debuerreotype versions
-   - Different timestamps used
-   - Build failures masked by exit code issues
-   - Network issues during package download
+**Common causes**: Different Debuerreotype versions, timestamps, build failures, network issues.
 
 ### Format Normalization Issues
 
-**Symptom:** Script fails to parse JSON from one platform
+Script fails to parse JSON.
 
 **Diagnosis:**
 ```bash
-# Check JSON structure
-jq 'keys' consensus-results/github-*.json
-jq 'keys' consensus-results/gcp-*.json
-
-# Validate JSON
-jq empty consensus-results/*.json
+jq 'keys' consensus-results/*.json  # Check structure
+jq empty consensus-results/*.json   # Validate
 ```
 
-**Solution:** Format normalization is automatic as of commit 3ba3cbf. If issues persist, check:
-- JSON is well-formed (`jq empty` should succeed)
-- Files contain either `.results[]` or `.architectures{}` keys
-- Serial numbers match across files
+**Solution**: Normalization is automatic. Verify JSON is well-formed and contains `.results[]` or `.architectures{}` keys.
 
 ## Automated Workflow
 
@@ -357,9 +310,9 @@ gh run download <run-id>
    - Track consensus achievement over time
    - Investigate declining consensus rates promptly
 
-4. **Keep threshold at 2:**
-   - Requires multiple independent platforms
-   - Balances security with operational feasibility
+4. **Ensure multiple platforms:**
+   - Requires ALL independent platforms to agree
+   - Each platform provides independent validation
 
 5. **Investigate all disagreements:**
    - Consensus failures signal potential compromise
@@ -380,7 +333,6 @@ gh run download <run-id>
 
     ./scripts/compare-platforms.sh \
       --results-dir consensus-results \
-      --threshold 2 \
       --output consensus-report.json
 ```
 
@@ -485,7 +437,7 @@ cat disagreement-report.json | jq '.comparisons[] | select(.disagreement == true
 |-------|------|-------------|
 | `timestamp` | string | When consensus validation ran (ISO 8601) |
 | `consensus.achieved` | boolean | Whether overall consensus achieved |
-| `consensus.threshold` | number | Minimum platforms required to agree |
+| `consensus.require_all_match` | boolean | Always true - full consensus required |
 | `summary.total_combinations` | number | Total suite/arch combinations checked |
 | `summary.consensus_achieved` | number | Combinations with consensus |
 | `summary.disagreements` | number | Combinations with disagreement |
