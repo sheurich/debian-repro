@@ -17,3 +17,7 @@ debuerreotype/
 
 # Test outputs
 test-results.tap
+
+# Node modules
+node_modules/
+package-lock.json
