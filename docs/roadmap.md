@@ -2,15 +2,21 @@
 
 Planned features and investigated alternatives.
 
-## Planned
+## Completed
 
 ### Docker Hub Registry Verification
 
 Direct comparison of Docker Hub images to artifacts repository checksums.
 
-**Status**: Not started
-**Priority**: High
-**Impact**: Closes trust gap between artifacts repository and registry
+**Status**: Implemented
+**Documentation**: [docs/registry-verification.md](registry-verification.md)
+
+- Daily automated workflow at 2 AM UTC
+- Compares uncompressed rootfs checksums (diff_id)
+- Supports all architectures: amd64, arm64, armhf, i386, ppc64el
+- Blocking failures detect potential registry tampering
+
+## Planned
 
 ### Daily Builds
 

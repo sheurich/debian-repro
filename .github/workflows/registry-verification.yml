@@ -1,0 +1,253 @@
+# .github/workflows/registry-verification.yml
+# Verify Docker Hub images match docker-debian-artifacts checksums
+# Detects registry tampering by comparing diff_ids
+name: Docker Hub Registry Verification
+
+on:
+  workflow_dispatch:
+    inputs:
+      architectures:
+        description: 'Architectures to verify (comma-separated)'
+        required: false
+        default: 'amd64,arm64'
+        type: string
+      suites:
+        description: 'Suites to verify (space-separated, empty for auto-discover)'
+        required: false
+        default: ''
+        type: string
+
+  schedule:
+    # Run daily at 2 AM UTC
+    - cron: '0 2 * * *'
+
+env:
+  TZ: 'UTC'
+  CRANE_VERSION: 'v0.20.2'
+
+permissions:
+  contents: write
+
+jobs:
+  setup:
+    name: Setup Verification Matrix
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+
+    steps:
+      - name: Generate matrix
+        id: matrix
+        run: |
+          # Parse architectures input
+          IFS=',' read -ra ARCHS <<< "${{ github.event.inputs.architectures || 'amd64,arm64' }}"
+
+          # Build matrix JSON
+          MATRIX='{"include":['
+          FIRST=true
+          for arch in "${ARCHS[@]}"; do
+            arch=$(echo "$arch" | xargs)  # trim whitespace
+
+            # Validate architecture
+            case "$arch" in
+              amd64|arm64|armhf|i386|ppc64el) ;;
+              *) echo "Skipping unknown architecture: $arch"; continue ;;
+            esac
+
+            if [ "$FIRST" = true ]; then
+              FIRST=false
+            else
+              MATRIX+=','
+            fi
+
+            MATRIX+="{\"arch\":\"$arch\"}"
+          done
+          MATRIX+=']}'
+
+          echo "matrix=$MATRIX" >> "$GITHUB_OUTPUT"
+          echo "Generated matrix: $MATRIX"
+
+  verify-registry:
+    name: Verify ${{ matrix.arch }}
+    needs: setup
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.setup.outputs.matrix) }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955  # v4.3.0
+
+      - name: Install crane
+        run: |
+          curl -sL "https://github.com/google/go-containerregistry/releases/download/${{ env.CRANE_VERSION }}/go-containerregistry_Linux_x86_64.tar.gz" \
+            | tar xz crane
+          sudo mv crane /usr/local/bin/
+          crane version
+
+      - name: Clone official artifacts
+        run: |
+          git clone --depth 1 --single-branch --branch "dist-${{ matrix.arch }}" \
+            https://github.com/debuerreotype/docker-debian-artifacts.git \
+            "official-${{ matrix.arch }}"
+
+      - name: Verify registry
+        id: verify
+        run: |
+          set -Eeuo pipefail
+
+          SUITES="${{ github.event.inputs.suites }}"
+          SUITE_ARG=""
+          if [ -n "$SUITES" ]; then
+            SUITE_ARG="--suites $SUITES"
+          fi
+
+          ./scripts/verify-registry.sh \
+            --arch "${{ matrix.arch }}" \
+            --artifacts-dir "official-${{ matrix.arch }}" \
+            $SUITE_ARG \
+            --output "results-${{ matrix.arch }}.json"
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
+        with:
+          name: registry-${{ matrix.arch }}
+          path: results-${{ matrix.arch }}.json
+          retention-days: 30
+
+  update-dashboard:
+    name: Update Dashboard
+    needs: [setup, verify-registry]
+    runs-on: ubuntu-24.04
+    if: always() && github.event_name != 'pull_request'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955  # v4.3.0
+
+      - name: Download all results
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16  # v4.1.8
+        with:
+          path: registry-results/
+
+      - name: List downloaded artifacts
+        run: |
+          echo "Downloaded artifacts:"
+          find registry-results/ -type f -name "*.json" | head -20
+
+      - name: Generate combined report
+        run: |
+          mkdir -p dashboard/data
+
+          ./scripts/generate-registry-report.sh \
+            --results-dir registry-results \
+            --output dashboard/data/registry-latest.json
+
+          echo "Generated report:"
+          jq '.summary' dashboard/data/registry-latest.json
+
+      - name: Update registry history
+        run: |
+          # Initialize history if it doesn't exist
+          if [ ! -f dashboard/data/registry-history.json ]; then
+            echo '[]' > dashboard/data/registry-history.json
+          fi
+
+          # Append to history (keep last 90 entries)
+          jq -s '.[0] + [.[1]] | sort_by(.timestamp) | .[-90:]' \
+            dashboard/data/registry-history.json \
+            dashboard/data/registry-latest.json \
+            > dashboard/data/registry-history.tmp
+
+          mv dashboard/data/registry-history.tmp dashboard/data/registry-history.json
+
+      - name: Generate registry badge
+        run: |
+          # Extract status and match rate from report
+          STATUS=$(jq -r '.status' dashboard/data/registry-latest.json)
+          MATCHED=$(jq '.summary.matched' dashboard/data/registry-latest.json)
+          TOTAL=$(jq '.summary.total' dashboard/data/registry-latest.json)
+
+          if [ "$STATUS" = "pass" ]; then
+            COLOR="brightgreen"
+            MESSAGE="verified"
+          else
+            COLOR="red"
+            MESSAGE="mismatch"
+          fi
+
+          # Generate badge JSON
+          jq -n \
+            --argjson version 1 \
+            --arg label "Docker Hub" \
+            --arg message "$MESSAGE ($MATCHED/$TOTAL)" \
+            --arg color "$COLOR" \
+            '{schemaVersion: $version, label: $label, message: $message, color: $color}' \
+            > dashboard/badges/registry-verification.json
+
+          echo "Generated badge:"
+          cat dashboard/badges/registry-verification.json
+
+      - name: Commit and push updates
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add dashboard/data/registry-latest.json \
+                  dashboard/data/registry-history.json \
+                  dashboard/badges/registry-verification.json
+
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            SERIAL=$(jq -r '.serial // "unknown"' dashboard/data/registry-latest.json)
+            STATUS=$(jq -r '.status' dashboard/data/registry-latest.json)
+
+            if [ "$STATUS" = "pass" ]; then
+              EMOJI="✅"
+            else
+              EMOJI="❌"
+            fi
+
+            git commit -m "$EMOJI Registry verification for serial $SERIAL" \
+              -m "Status: $STATUS" \
+              -m "Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+            # Push with retry for concurrent commits
+            max_attempts=3
+            attempt=1
+            while [ $attempt -le $max_attempts ]; do
+              if git push origin main; then
+                echo "Push successful"
+                break
+              else
+                echo "Push failed, retrying..."
+                git pull --rebase origin main
+                attempt=$((attempt + 1))
+              fi
+            done
+          fi
+
+      - name: Report status
+        if: always()
+        run: |
+          STATUS=$(jq -r '.status' dashboard/data/registry-latest.json 2>/dev/null || echo "unknown")
+          MATCHED=$(jq '.summary.matched' dashboard/data/registry-latest.json 2>/dev/null || echo "0")
+          TOTAL=$(jq '.summary.total' dashboard/data/registry-latest.json 2>/dev/null || echo "0")
+
+          {
+            echo "## Registry Verification Results"
+            echo ""
+            if [ "$STATUS" = "pass" ]; then
+              echo "### ✅ All Docker Hub images verified"
+            else
+              echo "### ❌ Registry verification failed"
+            fi
+            echo ""
+            echo "- **Matched**: $MATCHED/$TOTAL"
+            echo "- **Status**: $STATUS"
+            echo ""
+            echo "See [dashboard](https://sheurich.github.io/debian-repro/) for details."
+          } >> "$GITHUB_STEP_SUMMARY"
