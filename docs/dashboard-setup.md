@@ -443,5 +443,5 @@ git pull origin main
 - [API Documentation](https://sheurich.github.io/debian-repro/api.html) - Programmatic data access
 - [Local Setup Guide](local-setup.md) - Running verifications locally
 - [Debuerreotype Guide](debuerreotype-guide.md) - Understanding the build tool
-- [Design Document](design.md) - System architecture and design decisions
+- [Architecture](architecture.md) - System architecture and verification process
 - [GitHub Actions Workflow](../.github/workflows/reproducible-debian-build.yml) - Full workflow source

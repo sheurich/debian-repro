@@ -6,22 +6,55 @@
 ![Consensus Status](https://img.shields.io/endpoint?url=https://sheurich.github.io/debian-repro/badges/consensus.json)
 ![Last Verified](https://img.shields.io/endpoint?url=https://sheurich.github.io/debian-repro/badges/last-verified.json)
 
-## Overview
+## Why This Exists
 
-Detect supply chain attacks against official Debian Docker images by rebuilding from source and comparing cryptographic checksums. Bit-for-bit reproduction proves images remain untampered.
+Millions of containers run on Debian Docker images. A compromised build process means compromised containers.
 
-**What we verify:**
-- Build process reproducibility using Debuerreotype
-- Checksum integrity across multiple independent CI systems (GitHub Actions, Google Cloud Build)
-- Full consensus required: ALL platforms must agree
+This system detects supply chain attacks by rebuilding official Debian Docker images from source and comparing SHA256 checksums. Bit-for-bit reproduction proves images remain untampered.
 
 **Public dashboard:** https://sheurich.github.io/debian-repro/
+
+## What We Detect
+
+| Attack | Detected | Method |
+|--------|----------|--------|
+| Build process tampering | Yes | Checksum mismatch |
+| CI platform compromise | Yes | Consensus failure between platforms |
+| Package substitution | Yes | Reproducibility breaks |
+| Docker Hub tampering | No | Gap: artifacts repo to registry |
+| Upstream package backdoors | No | Out of scope |
+
+We verify image *assembly*, not package *compilation*. See [Security Model](docs/security.md) for the complete threat model.
+
+## How It Works
+
+1. **Fetch** official build parameters from `debuerreotype/docker-debian-artifacts`
+2. **Rebuild** using Debuerreotype with identical timestamps
+3. **Compare** SHA256 checksums against official artifacts
+4. **Require consensus** — all platforms must agree
+
+### Multi-Platform Consensus
+
+We build on two independent platforms:
+- **GitHub Actions** (Microsoft infrastructure)
+- **Google Cloud Build** (Google infrastructure)
+
+Both must produce identical checksums. Disagreement signals platform compromise or non-deterministic builds.
+
+### Trust Model
+
+We trust:
+- **Debian packages** — we verify assembly, not compilation
+- **`docker-debian-artifacts`** — single trust point until Docker Hub verification
+- **SHA256** — cryptographic integrity
+
+Multi-platform consensus eliminates single-CI as a trust point. See [Security Model](docs/security.md) for trust dependencies.
 
 ## Quick Start
 
 ### Local Verification
 
-Runs on macOS and Linux with **automatic** multi-architecture support.
+Runs on macOS and Linux with automatic multi-architecture support.
 
 ```bash
 # Clone and run
@@ -30,54 +63,46 @@ cd debian-repro
 ./verify-local.sh
 
 # Cross-architecture builds (auto-setup if needed)
-./verify-local.sh --arch amd64   # Build AMD64 on Apple Silicon Mac
-./verify-local.sh --arch arm64   # Build ARM64 on Intel Mac
+./verify-local.sh --arch amd64   # Build AMD64 on Apple Silicon
+./verify-local.sh --arch arm64   # Build ARM64 on Intel
 
 # Parallel multi-suite builds
 ./verify-local.sh --parallel --suites "bookworm trixie bullseye"
-
-# Parallel cross-architecture builds (auto-setup!)
-./verify-local.sh --parallel --suites "bookworm trixie bullseye" --arch amd64
 ```
 
-**The script detects missing architectures and installs binfmt support via QEMU automatically.**
+The script detects missing architectures and installs QEMU emulation automatically.
 
-See **[docs/local-setup.md](docs/local-setup.md)** for setup details and troubleshooting.
+See [Local Setup](docs/local-setup.md) for troubleshooting.
 
-For all commands (triggering builds, consensus validation, etc.), see **[docs/commands.md](docs/commands.md)**.
+## Coverage
 
-## Key Configuration
+**Architectures:**
+- Default (weekly): amd64, arm64
+- Manual trigger: amd64, arm64, armhf, i386, ppc64el
+- Unsupported: s390x (not in artifacts repository)
 
-**Architecture Support:**
-- **Default (automated weekly builds)**: amd64, arm64
-- **Available on manual trigger**: amd64, arm64, armhf, i386, ppc64el
-- **Explicitly unsupported**: s390x (not yet available in official artifacts repository)
-
-**Supported Suites:**
+**Suites:**
 - `forky` (testing)
 - `trixie` (stable)
 - `bookworm` (oldstable)
 - `bullseye` (oldoldstable)
 - `unstable` (sid)
 
-For detailed architecture and system design, see **[docs/architecture.md](docs/architecture.md)**.
-
 ## Documentation
 
-### Getting Started
-- [`docs/local-setup.md`](docs/local-setup.md) - Local verification setup and troubleshooting
-- [`docs/debuerreotype-guide.md`](docs/debuerreotype-guide.md) - Using Debuerreotype
-- [`docs/commands.md`](docs/commands.md) - Command reference
+### Understand the System
+- [Security Model](docs/security.md) — Threat model, trust dependencies, detection methods
+- [Architecture](docs/architecture.md) — Verification engine, consensus mechanism, toolchain
 
-### System Design
-- [`docs/architecture.md`](docs/architecture.md) - System architecture and verification process
-- [`docs/security.md`](docs/security.md) - Threat model and trust dependencies
-- [`docs/design.md`](docs/design.md) - Complete design document
+### Run Locally
+- [Local Setup](docs/local-setup.md) — Prerequisites, cross-architecture builds, troubleshooting
+- [Debuerreotype Guide](docs/debuerreotype-guide.md) — Manual builds with the official toolchain
+- [Commands](docs/commands.md) — Command reference
 
-### Advanced Topics
-- [`docs/consensus-validation-guide.md`](docs/consensus-validation-guide.md) - Cross-platform consensus validation
-- [`docs/gcp-setup-instructions.md`](docs/gcp-setup-instructions.md) - Google Cloud Platform integration with WIF
-- [`docs/dashboard-setup.md`](docs/dashboard-setup.md) - GitHub Pages dashboard configuration
+### Operate in CI
+- [Consensus Validation](docs/consensus-validation-guide.md) — Cross-platform verification
+- [GCP Setup](docs/gcp-setup-instructions.md) — Google Cloud Build with Workload Identity Federation
+- [Dashboard Setup](docs/dashboard-setup.md) — GitHub Pages configuration
 
-### Roadmap
-- [`docs/roadmap.md`](docs/roadmap.md) - Planned features and enhancements
+### Future Work
+- [Roadmap](docs/roadmap.md) — Planned features and investigated alternatives

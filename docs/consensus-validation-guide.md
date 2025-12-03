@@ -462,6 +462,6 @@ Each entry in `comparisons[]` contains:
 
 ## Related Documentation
 
-- [Design Document](design.md) - System architecture
+- [Architecture](architecture.md) - System architecture
 - [GCP Setup Instructions](gcp-setup-instructions.md) - GCP configuration
 - [Local Setup Guide](local-setup.md) - Local verification

@@ -1,305 +1,207 @@
-# System Architecture
+# Architecture
 
-System design, verification process, and technical specifications for debian-repro.
+Verification engine, build platforms, consensus mechanism, and toolchain integration.
 
 ## Overview
 
-We detect supply chain attacks by proving official Debian Docker images rebuild bit-for-bit from source. Independent cryptographic verification across multiple platforms protects millions of containers relying on Debian base images.
+We detect supply chain attacks by proving official Debian Docker images rebuild bit-for-bit from source. Independent verification across multiple platforms protects containers relying on Debian base images.
 
-## System Goals
+## Verification Flow
 
-### Mission
-Verify continuously that official Debian Docker images reproduce bit-for-bit from source, providing tamper-evidence for the software supply chain.
+```
+┌─────────────────────┐
+│ 1. Fetch Parameters │
+│ (docker-debian-     │
+│  artifacts repo)    │
+└─────────┬───────────┘
+          │
+          ▼
+┌─────────────────────┐
+│ 2. Rebuild          │
+│ (Debuerreotype +    │
+│  snapshot.debian.org)│
+└─────────┬───────────┘
+          │
+          ▼
+┌─────────────────────┐
+│ 3. Compare SHA256   │
+│ (local vs official) │
+└─────────┬───────────┘
+          │
+          ▼
+┌─────────────────────┐
+│ 4. Require Consensus│
+│ (all platforms agree)│
+└─────────────────────┘
+```
 
-### Primary Objectives
+## Current Trust Point
 
-**Security Objectives**
-- **Detect** unauthorized modifications through checksum mismatches
-- **Verify** cryptographically that images match their source
-- **Alert** on reproducibility failures via weekly automated verification
+The `docker-debian-artifacts` repository is our single trust point.
 
-**Trust Objectives**
-- **Eliminate** single points of trust through multi-platform builds
-- **Require** full consensus from all independent CI systems
-- **Publish** all verification results publicly in real-time
+```
+┌─────────────────┐     ┌──────────────────────┐     ┌────────────┐
+│ Debian Packages │ ──► │ docker-debian-       │ ──► │ Docker Hub │
+│ (snapshot.d.o)  │     │ artifacts (verified) │     │ (gap)      │
+└─────────────────┘     └──────────────────────┘     └────────────┘
+        ▲                         ▲
+        │                         │
+        │    ┌───────────────┐    │
+        └────│ Our Builds    │────┘
+             │ (verification)│
+             └───────────────┘
+```
 
-**Coverage Objectives**
-- **Support** Debian architectures: amd64, arm64 (default), plus armhf, i386, ppc64el (manual trigger). s390x explicitly unsupported (not in artifacts repo)
-- **Cover** all active Debian suites (stable, testing, unstable, oldstable)
-- **Monitor** continuously with weekly scheduled verification for default architectures
+**Gap**: We don't verify Docker Hub images match the artifacts repository. An attacker who compromises Docker Hub could serve different images.
 
-### Design Principles
-- **Deterministic**: Identical inputs produce identical outputs
-- **Transparent**: All results remain publicly accessible
-- **Efficient**: Verify only when upstream changes
-- **Portable**: Works locally and in CI/CD environments
-
-## Verification Engine
-
-Modular shell scripts:
-- Retrieve official parameters from upstream
-- Orchestrate single or parallel builds
-- Compare checksums between local and official builds
-- Generate JSON reports and badges
+**Planned**: Direct Docker Hub verification closes this gap.
 
 ## Build Platforms
 
-### Local Execution
-- One command starts verification
-- Configures QEMU automatically for cross-architecture builds
-- Runs parallel builds with CPU-based concurrency
-- Supports Docker Community/Desktop, Colima, OrbStack
+### GitHub Actions (Primary)
 
-### GitHub Actions
-- Triggers on upstream changes
 - Matrix builds across architectures
 - Native ARM runners for arm64/armhf
 - QEMU emulation for i386/ppc64el
-- Caches via GitHub Container Registry
+- Weekly scheduled verification (Sundays 00:00 UTC)
 
-### Google Cloud Build
+### Google Cloud Build (Independent)
+
 - Independent validation platform
-- High-performance compute
-- Artifact storage with lifecycle management
 - Workload Identity Federation authentication
+- Artifact storage with lifecycle management
 
-## Build Targets
+### Local Execution
 
-**Official Verification** (Primary)
-- Rebuilds official Debian Docker images with exact timestamps
-- Triggered by upstream changes in `docker-debian-artifacts` repository
-- Verifies bit-for-bit reproducibility against Docker Hub images
-- Weekly scheduled verification runs
+- One command: `./verify-local.sh`
+- Automatic QEMU setup for cross-architecture
+- Parallel builds with CPU-based concurrency
+- Supports Docker Desktop, Colima, OrbStack
 
 ## Consensus Mechanism
 
-### Multi-Perspective Validation
-- Full consensus required from all platforms
-- Each CI platform builds independently with identical parameters
-- Consensus validator workflow aggregates and validates results
-- Failures trigger detailed investigation with witness evidence
-- Dashboard displays consensus status with platform-level visibility
+Full consensus required. All platforms must produce identical SHA256 checksums.
+
+### Why Consensus Matters
+
+- Detects single-platform compromise
+- Reveals non-deterministic builds
+- Eliminates CI as single trust point
 
 ### Implementation
 
-**Result Collection** (`scripts/collect-results.sh`): Fetches reports from GitHub Actions and GCP. Supports GitHub Pages and GCS bucket artifacts. Retrieves by serial number. Automatic retry on failures.
+**Result collection** (`scripts/collect-results.sh`): Fetches reports from GitHub Actions and GCP. Supports GitHub Pages and GCS bucket artifacts.
 
-**Consensus Validation** (`scripts/compare-platforms.sh`): Compares checksums across platforms per suite/architecture. Requires unanimous agreement. Generates reports and witness evidence. Normalizes GitHub nested and GCP array formats automatically.
+**Consensus validation** (`scripts/compare-platforms.sh`): Compares checksums across platforms per suite/architecture. Requires unanimous agreement. Generates witness evidence on disagreement.
 
-**Automated Validation** (`consensus-validator.yml`): Runs weekly or on-demand. Uses Workload Identity Federation for GCP authentication. Collects from all platforms, validates consensus, updates dashboard, commits reports.
+**Automated validation** (`consensus-validator.yml`): Runs weekly after builds (Mondays 06:00 UTC). Uses Workload Identity Federation for GCP. Updates dashboard with consensus status.
 
-### Usage Examples
+### Usage
 
-Manual consensus validation:
 ```bash
-# Collect results from both platforms
+# Collect results from all platforms
 ./scripts/collect-results.sh \
-  --serial 20251020 \
+  --serial 20251103 \
   --github-repo sheurich/debian-repro \
   --gcp-project debian-repro-oxide \
   --output-dir consensus-results
 
-# Compare and validate consensus
+# Validate consensus
 ./scripts/compare-platforms.sh \
   --results-dir consensus-results \
   --output consensus-report.json
 ```
 
-Automated via workflow:
-```bash
-# Trigger for specific serial
-gh workflow run consensus-validator.yml -f serial=20251020
-
-# View results
-gh run watch
-```
-
-**Status**: Fully operational consensus validation across 2 independent platforms (November 2025)
-- GitHub Actions and Google Cloud Build require full agreement
-- Tested with 8 suite/architecture combinations
-- Achieved 100% consensus in testing
-- Both collection and comparison scripts exit with proper codes and generate valid JSON reports
-
-## Toolchain Integration
+## Toolchain
 
 ### Debuerreotype
-- Official Debian image builder (v0.16 pinned)
-- Requires `SYS_ADMIN` for chroot operations
-- Uses exact `SOURCE_DATE_EPOCH` timestamp
-- Locks package versions via snapshot.debian.org
 
-### mmdebstrap (Planned)
-- Independent debootstrap alternative
-- Produces bit-identical outputs via shared fixup process
-- Uses same input parameters as Debuerreotype
-- Provides toolchain diversity
+Official Debian image builder (v0.16 pinned).
+
+**Requirements**:
+- `SYS_ADMIN` capability for chroot operations
+- Exact `SOURCE_DATE_EPOCH` timestamp
+- Package versions locked via snapshot.debian.org
+
+**How it achieves reproducibility**:
+- Fetches packages from timestamped snapshot
+- Normalizes all timestamps with SOURCE_DATE_EPOCH
+- Deterministic tar with sorted files and numeric owners
+- Fixup process removes logs, machine IDs, variable content
 
 ## Public Dashboard
 
-**Location:** `https://sheurich.github.io/debian-repro/`
+**Location**: https://sheurich.github.io/debian-repro/
 
-GitHub Pages hosts:
 - Reproducibility status matrix
-- 30-day historical trends
+- 7-day historical trends
 - Architecture breakdowns
-- Status badges
-- Mobile-responsive interface
+- Consensus status per platform
+- JSON/CSV/JSON-LD data exports
 
-**Configuration**: `pages.yml` workflow deploys `/dashboard` directory. `update-dashboard` job updates data after each CI run.
+**Deployment**: `pages.yml` workflow deploys `/dashboard` directory. `update-dashboard` job updates data after each CI run.
 
-## Verification Process
+## Repository Structure
 
-### Parameter Acquisition
-1. Clone architecture-specific branch from official repository
-2. Extract serial number and epoch timestamp
-3. Construct snapshot.debian.org URL
-4. Retrieve SHA256 checksums
-
-### Build Execution
-1. Create Debuerreotype Docker image
-2. Execute build with exact parameters
-3. Generate rootfs tarballs
-
-### Verification
-1. Compute SHA256 of local artifacts
-2. Compare with official checksums
-3. Report results per suite
-4. Aggregate across architectures
-
-### Reporting
-
-Dashboard updates after each build:
-
-1. **Fetch build results** - Collect verification data from all architectures
-2. **Verify checksums** - Compare against official Docker Hub artifacts
-   - Requires official artifacts checkout BEFORE processing
-   - Step ordering is critical for comparison to work
-3. **Generate report** - Create JSON with reproducibility metrics
-4. **Update dashboard** - Commit results to dashboard/data/
-   - Includes retry logic for handling concurrent commits
-   - Backs up, resets, and reapplies changes on conflicts
-5. **Deploy to Pages** - Manual trigger required after push
-   - GITHUB_TOKEN commits don't auto-trigger workflows
-   - Run `gh workflow run pages.yml` manually
-
-## Infrastructure
-
-### Repository Structure
 ```
 /
 ├── .github/workflows/  # CI/CD workflows
 ├── scripts/            # Verification scripts
-├── tests/              # Test suites
-├── docs/               # Documentation guides
-├── dashboard/          # Web dashboard (GitHub Pages)
-│   ├── badges/         # Status endpoints
-│   ├── data/           # Historical data
-│   ├── index.html      # Dashboard interface
-│   ├── script.js       # Dashboard logic
-│   └── style.css       # Dashboard styling
-├── cloudbuild.yaml     # Cloud Build config
+├── tests/              # BATS test suite
+├── docs/               # Documentation
+├── dashboard/          # GitHub Pages dashboard
+│   ├── badges/         # Shields.io endpoints
+│   ├── data/           # Verification data
+│   └── index.html      # Dashboard interface
+├── cloudbuild.yaml     # GCP Cloud Build config
 └── verify-local.sh     # Local entry point
 ```
 
-### Google Cloud Resources
-- Service account with minimal permissions
-- Workload Identity Federation for keyless auth
-- Cloud Build for automated execution
-- Cloud Storage with 30-day retention
+## Technical Requirements
 
-### Security Model
-- Keyless authentication via OIDC
-- Least-privilege IAM roles
-- Input validation on all parameters
-- Pinned dependencies
+### Docker Configuration
+
+```yaml
+capabilities:
+  add: [SYS_ADMIN]
+  drop: [SETFCAP]
+security_opt:
+  - seccomp=unconfined
+  - apparmor=unconfined
+tmpfs: /tmp:dev,exec,suid,noatime
+environment:
+  TZ: UTC
+  SOURCE_DATE_EPOCH: <exact official epoch>
+```
+
+### Critical Parameters
+
+- `SOURCE_DATE_EPOCH` must match official timestamp exactly
+- Architecture names require mapping (Debian ↔ Docker)
+- Output structure: `{serial}/{arch}/{suite}/`
+
+## Architecture Support
+
+| Architecture | GitHub Runner | GCP | Emulation |
+|--------------|---------------|-----|-----------|
+| amd64 | ubuntu-24.04 | Native | No |
+| arm64 | ubuntu-24.04-arm | QEMU | No |
+| armhf | ubuntu-24.04-arm | QEMU | No |
+| i386 | ubuntu-24.04 + QEMU | QEMU | Yes |
+| ppc64el | ubuntu-24.04 + QEMU | QEMU | Yes |
 
 ## Quality Assurance
 
-### Testing
-- Unit tests validate functions
-- Integration tests verify workflows
-- BATS tests shell scripts
-- CI runs tests on every change
+**Testing**: BATS unit and integration tests. CI runs on every change.
 
-### Code Quality
-- Shellcheck analyzes scripts
-- Yamllint validates YAML
-- Scripts exit on undefined variables
-- Structured logging
+**Linting**: Shellcheck for scripts, yamllint for YAML.
 
-## Monitoring
-
-### Metrics
-- Reproducibility percentage
-- Build duration by architecture
-- Verification frequency
-- Cross-platform match rate
-
-### Visualization
-- Public status page
-- Historical trends
-- Architecture status
-- Badge endpoints
-
-### Alerting
-- Build failures trigger notifications
-- Reproducibility degradation triggers warnings
-- Stale data triggers alerts
-
-## Performance
-
-### Optimization
-- Docker buildx caches layers
-- Shallow git clones reduce transfer
-- Parallel builds use CPU cores
-- Tmpfs accelerates I/O
-
-### Resource Management
-- Architecture-specific runner selection
-- High-CPU machines for Cloud Build
-- 30-day data retention
-- Automatic cleanup policies
+**Monitoring**: Reproducibility percentage, build duration, cross-platform match rate.
 
 ## Extensibility
 
-### Adding Architectures
-1. Update architecture mappings
-2. Configure runners and emulation
-3. Add to matrix generation
-4. Update documentation
+**Adding architectures**: Update mappings, configure runners/emulation, add to matrix.
 
-### Adding Suites
-New suites automatically work when they appear in the official repository.
+**Adding suites**: Automatic when they appear in official repository.
 
-### Integration Points
-- JSON reports enable programmatic access
-- Shields.io badges provide status indicators
-- GitHub Actions outputs allow workflow chaining
-- GCS artifacts support external analysis
-
-## Technical Specifications
-
-### Docker Requirements
-- Capabilities: Add `SYS_ADMIN`, drop `SETFCAP`
-- Security: Unconfined seccomp and AppArmor
-- Tmpfs: `/tmp:dev,exec,suid,noatime`
-- Environment: `TZ=UTC`, exact `SOURCE_DATE_EPOCH`
-
-### Critical Parameters
-- `SOURCE_DATE_EPOCH` must match official timestamp exactly
-- Architecture names require mapping between Debian and Docker
-- Output follows structure: `{serial}/{arch}/{suite}/`
-- Official checksums use flat structure per architecture
-
-### Build Isolation
-Each build runs in an isolated Docker container with specific security configuration to ensure reproducibility.
-
-## Success Metrics
-
-### Security Metrics
-- **Tamper Detection**: Weekly automated verification (Sundays at 00:00 UTC)
-- **Supply Chain Coverage**: 100% of official images
-- **Cryptographic Verification**: SHA256 for all architectures/suites
-- **False Positive Rate**: 0% when uncompromised
-- **Toolchain Parity**: > 99% agreement rate (Planned - mmdebstrap not yet integrated)
-- **Platform Consensus**: 100% agreement required between all platforms
+**Integration points**: JSON reports, Shields.io badges, GitHub Actions outputs, GCS artifacts.
