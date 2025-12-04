@@ -9,7 +9,7 @@
       "url": "https://sheurich.github.io/debian-repro/",
       "license": "https://opensource.org/licenses/MIT",
       "version": "20251117",
-      "dateModified": "2025-12-04T02:38:06Z",
+      "dateModified": "2025-12-04T02:45:46Z",
       "creator": {
         "@type": "Person",
         "name": "Shiloh Heurich",
@@ -35,7 +35,7 @@
           "name": "JSON-LD Structured Data"
         }
       ],
-      "temporalCoverage": "2025-12-04T02:38:06Z",
+      "temporalCoverage": "2025-12-04T02:45:46Z",
       "spatialCoverage": {
         "@type": "Place",
         "name": "Global"
@@ -51,20 +51,20 @@
         {
           "@type": "PropertyValue",
           "name": "reproducibility_rate",
-          "value": 0,
+          "value": 70,
           "unitText": "percent",
           "description": "Percentage of suites that were reproducible"
         },
         {
           "@type": "PropertyValue",
           "name": "total_suites",
-          "value": 0,
+          "value": 10,
           "description": "Total number of suite/architecture combinations verified"
         },
         {
           "@type": "PropertyValue",
           "name": "reproducible_suites",
-          "value": 0,
+          "value": 7,
           "description": "Number of reproducible suite/architecture combinations"
         },
         {
@@ -102,7 +102,7 @@
         "email": "sheurich@fastly.com"
       },
       "datePublished": "2025-01-01",
-      "dateModified": "2025-12-04T02:38:06Z",
+      "dateModified": "2025-12-04T02:45:46Z",
       "description": "Static dashboard for visualizing Debian Docker image reproducibility verification results",
       "keywords": [
         "dashboard",

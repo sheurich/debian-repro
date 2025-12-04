@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "label": "i386",
+  "label": "ppc64el",
   "message": "not reproducible",
   "color": "red"
 }
