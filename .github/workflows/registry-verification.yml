@@ -48,10 +48,27 @@ jobs:
           for arch in "${ARCHS[@]}"; do
             arch=$(echo "$arch" | xargs)  # trim whitespace
 
-            # Validate architecture
+            # Map architecture to artifacts branch name
             case "$arch" in
-              amd64|arm64|armhf|i386|ppc64el) ;;
-              *) echo "Skipping unknown architecture: $arch"; continue ;;
+              amd64)
+                artifacts_branch="dist-amd64"
+                ;;
+              arm64)
+                artifacts_branch="dist-arm64v8"
+                ;;
+              armhf)
+                artifacts_branch="dist-arm32v7"
+                ;;
+              i386)
+                artifacts_branch="dist-i386"
+                ;;
+              ppc64el)
+                artifacts_branch="dist-ppc64le"
+                ;;
+              *)
+                echo "Skipping unknown architecture: $arch"
+                continue
+                ;;
             esac
 
             if [ "$FIRST" = true ]; then
@@ -60,7 +77,7 @@ jobs:
               MATRIX+=','
             fi
 
-            MATRIX+="{\"arch\":\"$arch\"}"
+            MATRIX+="{\"arch\":\"$arch\",\"artifacts_branch\":\"$artifacts_branch\"}"
           done
           MATRIX+=']}'
 
@@ -88,7 +105,7 @@ jobs:
 
       - name: Clone official artifacts
         run: |
-          git clone --depth 1 --single-branch --branch "dist-${{ matrix.arch }}" \
+          git clone --depth 1 --single-branch --branch "${{ matrix.artifacts_branch }}" \
             https://github.com/debuerreotype/docker-debian-artifacts.git \
             "official-${{ matrix.arch }}"
 
