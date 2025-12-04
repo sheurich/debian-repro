@@ -312,31 +312,49 @@ jobs:
 
           mkdir -p output
 
-          # Run debuerreotype (uses /opt/debuerreotype from Dockerfile)
-          docker run \
-            --rm \
-            --cap-add SYS_ADMIN \
-            --cap-drop SETFCAP \
-            --security-opt seccomp=unconfined \
-            --security-opt apparmor=unconfined \
-            --tmpfs /tmp:dev,exec,suid,noatime \
-            --env TZ=UTC \
-            --env SOURCE_DATE_EPOCH="$EPOCH" \
-            --env TMPDIR=/tmp \
-            --volume "$PWD/output":/output \
-            debuerreotype:${{ env.DEBUERREOTYPE_VERSION }} \
-            sh -c "
-              set -ex
-              cd /tmp
-              for suite in $SUITES; do
-                echo \"Building \$suite for ${{ matrix.dpkg_arch }}...\"
+          # Initialize timing file
+          echo "{}" > output/build-times.json
+
+          for suite in $SUITES; do
+            echo "Building $suite for ${{ matrix.dpkg_arch }}..."
+            START_TIME=$(date +%s)
+
+            # Run debuerreotype (uses /opt/debuerreotype from Dockerfile)
+            docker run \
+              --rm \
+              --cap-add SYS_ADMIN \
+              --cap-drop SETFCAP \
+              --security-opt seccomp=unconfined \
+              --security-opt apparmor=unconfined \
+              --tmpfs /tmp:dev,exec,suid,noatime \
+              --env TZ=UTC \
+              --env SOURCE_DATE_EPOCH="$EPOCH" \
+              --env TMPDIR=/tmp \
+              --volume "$PWD/output":/output \
+              debuerreotype:${{ env.DEBUERREOTYPE_VERSION }} \
+              sh -c "
+                set -ex
+                cd /tmp
                 /opt/debuerreotype/examples/debian.sh \
                   --arch=\"${{ matrix.dpkg_arch }}\" \
                   /output \
-                  \"\$suite\" \
+                  \"$suite\" \
                   \"@$EPOCH\"
-              done
-            "
+              "
+
+            END_TIME=$(date +%s)
+            BUILD_TIME=$((END_TIME - START_TIME))
+
+            # Update timing file
+            jq --arg suite "$suite" --argjson time "$BUILD_TIME" \
+              '. + {($suite): $time}' output/build-times.json > output/build-times.tmp
+            mv output/build-times.tmp output/build-times.json
+
+            echo "Built $suite in ${BUILD_TIME}s"
+          done
+
+          echo "Build times:"
+          cat output/build-times.json
 
       - name: Verify reproducibility
         id: verify
@@ -505,9 +523,21 @@ jobs:
               continue
             fi
 
+            # Load build times if available
+            build_times_file="$artifact_dir/build-times.json"
+            if [ -f "$build_times_file" ]; then
+              echo "  Found build times: $(cat "$build_times_file")"
+            else
+              echo "  No build times file found"
+              echo "{}" > "$build_times_file"
+            fi
+
             # Process each suite
             for suite in $SUITES; do
               echo "  Processing suite: $suite"
+
+              # Get build time for this suite
+              build_time=$(jq -r --arg s "$suite" '.[$s] // 0' "$build_times_file")
 
               # Path to our build (use glob to find arch directory)
               shopt -s nullglob
@@ -519,10 +549,11 @@ jobs:
                 # Create failed result
                 jq -n \
                   --arg suite "$suite" \
+                  --argjson time "$build_time" \
                   '{
                     reproducible: false,
                     sha256: "build-failed",
-                    build_time_seconds: 0,
+                    build_time_seconds: $time,
                     error: "Build file not found"
                   }' > "results/${arch}-${suite}.json"
                 continue
@@ -539,7 +570,7 @@ jobs:
                 official_sha256=$(cut -d' ' -f1 < "$official_file")
 
                 if [ "$our_sha256" = "$official_sha256" ]; then
-                  echo "    ✅ Reproducible"
+                  echo "    ✅ Reproducible (${build_time}s)"
                   reproducible=true
                 else
                   echo "    ❌ Not reproducible"
@@ -556,11 +587,12 @@ jobs:
                 --arg sha "$our_sha256" \
                 --arg official "$official_sha256" \
                 --argjson repro "$reproducible" \
+                --argjson time "$build_time" \
                 '{
                   reproducible: $repro,
                   sha256: $sha,
                   official_sha256: $official,
-                  build_time_seconds: 0
+                  build_time_seconds: $time
                 }' > "results/${arch}-${suite}.json"
             done
           done
