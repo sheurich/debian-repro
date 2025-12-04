@@ -30,7 +30,9 @@ on:
     - cron: '0 0 * * 0'
 
 env:
-  DEBUERREOTYPE_VERSION: '0.16'
+  # Using commit SHA with distro-info-data fix (post-0.16)
+  # See: https://github.com/debuerreotype/debuerreotype/commit/e044a8f
+  DEBUERREOTYPE_VERSION: 'e044a8f'
   TZ: 'UTC'
 
 permissions:
@@ -259,14 +261,15 @@ jobs:
         run: |
           set -Eeuo pipefail -x
 
-          # Clone specific version
+          # Clone or update debuerreotype
           if [ ! -d ~/.cache/debuerreotype ]; then
-            git clone --depth 1 https://github.com/debuerreotype/debuerreotype.git ~/.cache/debuerreotype
+            git clone https://github.com/debuerreotype/debuerreotype.git ~/.cache/debuerreotype
           fi
 
           cd ~/.cache/debuerreotype
-          git fetch --tags
-          git checkout "refs/tags/${DEBUERREOTYPE_VERSION}"
+          git fetch --tags origin
+          # Support both tags (0.16) and commit SHAs (e044a8f)
+          git checkout "${DEBUERREOTYPE_VERSION}"
 
           # Copy to workspace
           cp -r ~/.cache/debuerreotype ${{ github.workspace }}/debuerreotype
