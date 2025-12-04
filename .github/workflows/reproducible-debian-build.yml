@@ -300,7 +300,7 @@ jobs:
             --cache-from type=registry,ref=ghcr.io/${{ github.repository }}/debuerreotype-cache:${{ matrix.arch }}-${{ env.DEBUERREOTYPE_VERSION }} \
             --cache-to type=registry,ref=ghcr.io/${{ github.repository }}/debuerreotype-cache:${{ matrix.arch }}-${{ env.DEBUERREOTYPE_VERSION }},mode=max \
             --tag debuerreotype:${{ env.DEBUERREOTYPE_VERSION }} \
-            --platform linux/${{ matrix.arch }} \
+            --platform linux/${{ matrix.dpkg_arch }} \
             .
 
       - name: Build Debian rootfs
