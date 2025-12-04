@@ -17,16 +17,14 @@ Threat model, trust dependencies, and detection methods.
 
 | Attack | Why |
 |--------|-----|
-| **Docker Hub tampering** | Gap between artifacts repo and registry (planned fix) |
+| ~~Docker Hub tampering~~ | Now detected via registry verification |
 | **Upstream package backdoors** | We verify assembly, not compilation |
 | **Compiler backdoors** | Debian's build infrastructure is trusted |
 | **Hardware tampering** | Out of scope |
 
-### Current Limitation
+### Registry Verification
 
-`docker-debian-artifacts` is our single trust point. We verify builds match this repository, but don't verify Docker Hub images match the repository.
-
-**Planned**: Direct Docker Hub verification closes this gap.
+`docker-debian-artifacts` serves as the source of truth. The registry verification workflow compares Docker Hub image layer diff_ids against official checksums daily, detecting tampering between artifact publication and registry distribution.
 
 ## Detection Methods
 
