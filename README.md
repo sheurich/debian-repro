@@ -8,8 +8,6 @@
 
 ## Why This Exists
 
-Millions of containers run on Debian Docker images. A compromised build process means compromised containers.
-
 This system detects supply chain attacks by rebuilding official Debian Docker images from source and comparing SHA256 checksums. Bit-for-bit reproduction proves images remain untampered.
 
 **Public dashboard:** https://sheurich.github.io/debian-repro/
@@ -21,7 +19,7 @@ This system detects supply chain attacks by rebuilding official Debian Docker im
 | Build process tampering | Yes | Checksum mismatch |
 | CI platform compromise | Yes | Consensus failure between platforms |
 | Package substitution | Yes | Reproducibility breaks |
-| Docker Hub tampering | Yes | Registry verification via diff_id comparison |
+| Docker Hub tampering | Yes | Registry verification via `diff_id` comparison |
 | Upstream package backdoors | No | Out of scope |
 
 We verify image *assembly*, not package *compilation*. See [Security Model](docs/security.md) for the threat model.
