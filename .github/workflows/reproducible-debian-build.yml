@@ -68,7 +68,7 @@ jobs:
 
             # The dist-* branches have flat structure with files at root
             # NOTE: Serial comes from official Debian repository, NOT from current date
-            # Debian publishes new builds infrequently
+            # Debian publishes new builds every few weeks
             SERIAL=$(cat serial)
             EPOCH=$(cat debuerreotype-epoch)
             SNAPSHOT_URL="http://snapshot.debian.org/archive/debian/${SERIAL}T000000Z"
@@ -94,7 +94,7 @@ jobs:
               echo "- **Timestamp**: @$EPOCH"
               echo "- **Snapshot**: $SNAPSHOT_URL"
               echo ""
-              echo "> ℹ️ Serial comes from official Debian builds, not current date. Debian publishes new images infrequently (a few times per year)."
+              echo "> ℹ️ Serial comes from official Debian builds, not current date. Debian publishes new images every few weeks."
             } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Validate expected serial
@@ -120,7 +120,7 @@ jobs:
                 echo ""
                 echo "- The current official serial is **$ACTUAL** (last Debian image build)"
                 echo "- You expected serial **$EXPECTED**"
-                echo "- Debian publishes new builds infrequently"
+                echo "- Debian publishes new builds every few weeks"
                 echo "- Serial dates reflect when Debian published the build, not the current calendar date"
                 echo ""
                 echo "### What To Do"
@@ -132,7 +132,7 @@ jobs:
                 echo ""
                 echo "**Option 2**: Wait for Debian to publish a new build"
                 echo "- Monitor: https://github.com/debuerreotype/docker-debian-artifacts"
-                echo "- Official builds appear infrequently"
+                echo "- Official builds appear every few weeks"
                 echo ""
                 echo "**Option 3**: Build daily images (future feature)"
                 echo "- For arbitrary date builds, use the daily build workflow (not yet implemented)"
@@ -151,7 +151,7 @@ jobs:
               echo "The current official serial is $ACTUAL"
               echo "(from debuerreotype/docker-debian-artifacts)"
               echo ""
-              echo "Debian publishes new builds infrequently."
+              echo "Debian publishes new builds every few weeks."
               echo "Serial $EXPECTED is not yet available in the official repository."
               echo ""
               exit 1
