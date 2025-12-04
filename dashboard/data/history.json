@@ -666,5 +666,36 @@
         }
       }
     }
+  },
+  {
+    "timestamp": "2025-12-04T02:38:06Z",
+    "run_id": "19915673605",
+    "serial": "20251117",
+    "epoch": 1763337600,
+    "environment": {
+      "timestamp": "2025-12-04T02:38:06Z",
+      "os": {
+        "name": "Ubuntu",
+        "version": "24.04.3 LTS (Noble Numbat)",
+        "kernel": "6.11.0-1018-azure",
+        "arch": "x86_64"
+      },
+      "docker": "Docker version 28.0.4, build b8034c0",
+      "qemu": "not installed",
+      "git": {
+        "version": "git version 2.52.0",
+        "sha": "e813d9d924a8662308e67dd8d0a2619492854aa8",
+        "branch": "main"
+      },
+      "github_actions": {
+        "runner_os": "Linux",
+        "runner_name": "GitHub Actions 1000003263",
+        "runner_arch": "X64",
+        "workflow": "Reproducible Debian Build",
+        "run_id": "19915673605",
+        "run_number": "41"
+      }
+    },
+    "architectures": {}
   }
 ]
