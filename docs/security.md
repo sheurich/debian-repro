@@ -12,12 +12,12 @@ Threat model, trust dependencies, and detection methods.
 | **Artifacts repository changes** | Yes | Unauthorized checksum changes detected |
 | **CI platform compromise** | Yes | Consensus failure reveals malicious platform |
 | **Package substitution** | Yes | Version changes break reproducibility |
+| **Docker Hub tampering** | Yes | Registry verification compares diff_ids daily |
 
 ### What We Don't Detect
 
 | Attack | Why |
 |--------|-----|
-| ~~Docker Hub tampering~~ | Now detected via registry verification |
 | **Upstream package backdoors** | We verify assembly, not compilation |
 | **Compiler backdoors** | Debian's build infrastructure is trusted |
 | **Hardware tampering** | Out of scope |
