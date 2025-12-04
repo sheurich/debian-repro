@@ -175,31 +175,32 @@ jobs:
             for arch in "${ARCHS[@]}"; do
               arch=$(echo "$arch" | xargs)  # trim whitespace
 
-              # Map architecture names to runner, dpkg_arch, and artifacts branch
+              # Map architecture names to runner, docker_platform, and artifacts branch
+              # Note: docker_platform differs from arch only for ppc64el (Debian) vs ppc64le (Docker)
               case "$arch" in
                 amd64)
                   runner="ubuntu-24.04"  # Native x86_64
-                  dpkg_arch="amd64"
+                  docker_platform="amd64"
                   artifacts_branch="dist-amd64"
                   ;;
                 arm64)
                   runner="ubuntu-24.04-arm"  # Native ARM64 - much faster!
-                  dpkg_arch="arm64"
+                  docker_platform="arm64"
                   artifacts_branch="dist-arm64v8"
                   ;;
                 armhf)
                   runner="ubuntu-24.04-arm"  # Native 32-bit ARM on ARM64
-                  dpkg_arch="armhf"
+                  docker_platform="armhf"
                   artifacts_branch="dist-arm32v7"
                   ;;
                 i386)
                   runner="ubuntu-24.04"  # Needs QEMU
-                  dpkg_arch="i386"
+                  docker_platform="i386"
                   artifacts_branch="dist-i386"
                   ;;
                 ppc64el)
                   runner="ubuntu-24.04"  # Needs QEMU
-                  dpkg_arch="ppc64le"
+                  docker_platform="ppc64le"  # Docker uses ppc64le, Debian uses ppc64el
                   artifacts_branch="dist-ppc64le"
                   ;;
                 s390x)
@@ -218,7 +219,7 @@ jobs:
                 MATRIX+=','
               fi
 
-              MATRIX+="{\"arch\":\"$arch\",\"dpkg_arch\":\"$dpkg_arch\",\"runner\":\"$runner\",\"artifacts_branch\":\"$artifacts_branch\"}"
+              MATRIX+="{\"arch\":\"$arch\",\"docker_platform\":\"$docker_platform\",\"runner\":\"$runner\",\"artifacts_branch\":\"$artifacts_branch\"}"
             done
             MATRIX+=']}'
 
@@ -300,7 +301,7 @@ jobs:
             --cache-from type=registry,ref=ghcr.io/${{ github.repository }}/debuerreotype-cache:${{ matrix.arch }}-${{ env.DEBUERREOTYPE_VERSION }} \
             --cache-to type=registry,ref=ghcr.io/${{ github.repository }}/debuerreotype-cache:${{ matrix.arch }}-${{ env.DEBUERREOTYPE_VERSION }},mode=max \
             --tag debuerreotype:${{ env.DEBUERREOTYPE_VERSION }} \
-            --platform linux/${{ matrix.dpkg_arch }} \
+            --platform linux/${{ matrix.docker_platform }} \
             .
 
       - name: Build Debian rootfs
@@ -316,7 +317,7 @@ jobs:
           echo "{}" > output/build-times.json
 
           for suite in $SUITES; do
-            echo "Building $suite for ${{ matrix.dpkg_arch }}..."
+            echo "Building $suite for ${{ matrix.arch }}..."
             START_TIME=$(date +%s)
 
             # Run debuerreotype (uses /opt/debuerreotype from Dockerfile)
@@ -336,7 +337,7 @@ jobs:
                 set -ex
                 cd /tmp
                 /opt/debuerreotype/examples/debian.sh \
-                  --arch=\"${{ matrix.dpkg_arch }}\" \
+                  --arch=\"${{ matrix.arch }}\" \
                   /output \
                   \"$suite\" \
                   \"@$EPOCH\"
@@ -364,7 +365,7 @@ jobs:
           SERIAL="${{ needs.fetch-official.outputs.serial }}"
           SUITES="${{ github.event.inputs.suites || 'bookworm trixie' }}"
           ARCH="${{ matrix.arch }}"
-          DPKG_ARCH="${{ matrix.dpkg_arch }}"
+          DPKG_ARCH="${{ matrix.arch }}"
 
           {
             echo "## Reproducibility Report ($ARCH)"
