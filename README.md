@@ -21,7 +21,7 @@ This system detects supply chain attacks by rebuilding official Debian Docker im
 | Build process tampering | Yes | Checksum mismatch |
 | CI platform compromise | Yes | Consensus failure between platforms |
 | Package substitution | Yes | Reproducibility breaks |
-| Docker Hub tampering | No | Gap: artifacts repo to registry |
+| Docker Hub tampering | Yes | Registry verification via diff_id comparison |
 | Upstream package backdoors | No | Out of scope |
 
 We verify image *assembly*, not package *compilation*. See [Security Model](docs/security.md) for the complete threat model.
@@ -77,8 +77,7 @@ See [Local Setup](docs/local-setup.md) for troubleshooting.
 ## Coverage
 
 **Architectures:**
-- Default (weekly): amd64, arm64
-- Manual trigger: amd64, arm64, armhf, i386, ppc64el
+- Supported: amd64, arm64, armhf, i386, ppc64el
 - Unsupported: s390x (not in artifacts repository)
 
 **Suites:**
