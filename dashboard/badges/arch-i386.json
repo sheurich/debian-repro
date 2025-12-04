@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
   "label": "i386",
-  "message": "not reproducible",
-  "color": "red"
+  "message": "reproducible",
+  "color": "brightgreen"
 }

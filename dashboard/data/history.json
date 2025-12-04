@@ -668,12 +668,12 @@
     }
   },
   {
-    "timestamp": "2025-12-04T02:45:46Z",
-    "run_id": "19915715547",
+    "timestamp": "2025-12-04T02:38:06Z",
+    "run_id": "19915673605",
     "serial": "20251117",
     "epoch": 1763337600,
     "environment": {
-      "timestamp": "2025-12-04T02:45:46Z",
+      "timestamp": "2025-12-04T02:38:06Z",
       "os": {
         "name": "Ubuntu",
         "version": "24.04.3 LTS (Noble Numbat)",
@@ -684,50 +684,81 @@
       "qemu": "not installed",
       "git": {
         "version": "git version 2.52.0",
-        "sha": "76bd9bc82008f8a4576c1ef28e4b368f3720dcac",
+        "sha": "e813d9d924a8662308e67dd8d0a2619492854aa8",
         "branch": "main"
       },
       "github_actions": {
         "runner_os": "Linux",
-        "runner_name": "GitHub Actions 1000003281",
+        "runner_name": "GitHub Actions 1000003263",
         "runner_arch": "X64",
         "workflow": "Reproducible Debian Build",
-        "run_id": "19915715547",
-        "run_number": "42"
+        "run_id": "19915673605",
+        "run_number": "41"
+      }
+    },
+    "architectures": {}
+  },
+  {
+    "timestamp": "2025-12-04T03:05:38Z",
+    "run_id": "19915861784",
+    "serial": "20251117",
+    "epoch": 1763337600,
+    "environment": {
+      "timestamp": "2025-12-04T03:05:38Z",
+      "os": {
+        "name": "Ubuntu",
+        "version": "24.04.3 LTS (Noble Numbat)",
+        "kernel": "6.11.0-1018-azure",
+        "arch": "x86_64"
+      },
+      "docker": "Docker version 28.0.4, build b8034c0",
+      "qemu": "not installed",
+      "git": {
+        "version": "git version 2.52.0",
+        "sha": "a7ab99e7b2620c307aa319401ec79136fccd12e2",
+        "branch": "main"
+      },
+      "github_actions": {
+        "runner_os": "Linux",
+        "runner_name": "GitHub Actions 1000003304",
+        "runner_arch": "X64",
+        "workflow": "Reproducible Debian Build",
+        "run_id": "19915861784",
+        "run_number": "43"
       }
     },
     "architectures": {
       "ppc64el": {
-        "status": "failed",
+        "status": "success",
         "suites": {
           "bookworm": {
-            "reproducible": false,
-            "sha256": "build-failed",
-            "build_time_seconds": 0,
-            "error": "Build file not found"
+            "reproducible": true,
+            "sha256": "0b512e9e4329fd88b548dca0b0857635a4a25da08339cd081c2ac611506364cf",
+            "official_sha256": "0b512e9e4329fd88b548dca0b0857635a4a25da08339cd081c2ac611506364cf",
+            "build_time_seconds": 564
           },
           "trixie": {
-            "reproducible": false,
-            "sha256": "build-failed",
-            "build_time_seconds": 0,
-            "error": "Build file not found"
+            "reproducible": true,
+            "sha256": "98c40020fb8921b1a4003b0b7ec0bc92fb74ca55b7d3f1e373d9f61b2f143896",
+            "official_sha256": "98c40020fb8921b1a4003b0b7ec0bc92fb74ca55b7d3f1e373d9f61b2f143896",
+            "build_time_seconds": 528
           }
         }
       },
       "i386": {
-        "status": "failed",
+        "status": "success",
         "suites": {
           "bookworm": {
             "reproducible": true,
             "sha256": "7ebe3dac952a999b9ea08f7d77b02155dc720db3364163046b0b406b02980e73",
             "official_sha256": "7ebe3dac952a999b9ea08f7d77b02155dc720db3364163046b0b406b02980e73",
-            "build_time_seconds": 232
+            "build_time_seconds": 148
           },
           "trixie": {
-            "reproducible": false,
-            "sha256": "build-failed",
-            "build_time_seconds": 0,
-            "error": "Build file not found"
+            "reproducible": true,
+            "sha256": "1149e6ce53c9dd6d371ec14c14eeaaac4371e6d7df54d8a06fc3aedbd6ab31c8",
+            "official_sha256": "1149e6ce53c9dd6d371ec14c14eeaaac4371e6d7df54d8a06fc3aedbd6ab31c8",
+            "build_time_seconds": 128
           }
         }
       },
@@ -738,13 +769,13 @@
             "reproducible": true,
             "sha256": "af9249629e2f8c0fa776f588f268d8e1c039805fb68f6fbfb202fbc12aadeb48",
             "official_sha256": "af9249629e2f8c0fa776f588f268d8e1c039805fb68f6fbfb202fbc12aadeb48",
-            "build_time_seconds": 46
+            "build_time_seconds": 42
           },
           "trixie": {
             "reproducible": true,
             "sha256": "e905b179371797a9f53bd4f2bd7b71c79b8c3e06cdb2753dcccc9eeeea035a31",
             "official_sha256": "e905b179371797a9f53bd4f2bd7b71c79b8c3e06cdb2753dcccc9eeeea035a31",
-            "build_time_seconds": 44
+            "build_time_seconds": 41
           }
         }
       },
@@ -755,13 +786,13 @@
             "reproducible": true,
             "sha256": "b4e775100bb5246f91a0ba1990ca925195f111dc41c9f59a851ae3fbb027ce67",
             "official_sha256": "b4e775100bb5246f91a0ba1990ca925195f111dc41c9f59a851ae3fbb027ce67",
-            "build_time_seconds": 117
+            "build_time_seconds": 71
           },
           "trixie": {
             "reproducible": true,
             "sha256": "c6a88783d2b5f3e620557da968b19430e3112d8aaa091000e7fb62ca2fddd921",
             "official_sha256": "c6a88783d2b5f3e620557da968b19430e3112d8aaa091000e7fb62ca2fddd921",
-            "build_time_seconds": 90
+            "build_time_seconds": 62
           }
         }
       },
@@ -772,13 +803,13 @@
             "reproducible": true,
             "sha256": "e72ce4ad036b1d296bada4dafd46cec9f8e1f9244d70546e6a4f9bf9688e6263",
             "official_sha256": "e72ce4ad036b1d296bada4dafd46cec9f8e1f9244d70546e6a4f9bf9688e6263",
-            "build_time_seconds": 137
+            "build_time_seconds": 43
           },
           "trixie": {
             "reproducible": true,
             "sha256": "733945f5698343eedd44c61fddd1a791f7ee596c061c1efdf6773fc907a078d8",
             "official_sha256": "733945f5698343eedd44c61fddd1a791f7ee596c061c1efdf6773fc907a078d8",
-            "build_time_seconds": 116
+            "build_time_seconds": 43
           }
         }
       }

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
   "label": "ppc64el",
-  "message": "not reproducible",
-  "color": "red"
+  "message": "reproducible",
+  "color": "brightgreen"
 }
