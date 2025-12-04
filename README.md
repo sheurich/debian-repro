@@ -24,7 +24,7 @@ This system detects supply chain attacks by rebuilding official Debian Docker im
 | Docker Hub tampering | Yes | Registry verification via diff_id comparison |
 | Upstream package backdoors | No | Out of scope |
 
-We verify image *assembly*, not package *compilation*. See [Security Model](docs/security.md) for the complete threat model.
+We verify image *assembly*, not package *compilation*. See [Security Model](docs/security.md) for the threat model.
 
 ## How It Works
 
@@ -45,10 +45,10 @@ Both must produce identical checksums. Disagreement signals platform compromise 
 
 We trust:
 - **Debian packages** — we verify assembly, not compilation
-- **`docker-debian-artifacts`** — single trust point until Docker Hub verification
+- **`docker-debian-artifacts`** — source of truth for official builds
 - **SHA256** — cryptographic integrity
 
-Multi-platform consensus eliminates single-CI as a trust point. See [Security Model](docs/security.md) for trust dependencies.
+Multi-platform consensus eliminates single-CI as a trust point. See [Security Model](docs/security.md).
 
 ## Quick Start
 
@@ -70,7 +70,7 @@ cd debian-repro
 ./verify-local.sh --parallel --suites "bookworm trixie bullseye"
 ```
 
-The script detects missing architectures and installs QEMU emulation automatically.
+The script detects missing architectures and installs QEMU emulation.
 
 See [Local Setup](docs/local-setup.md) for troubleshooting.
 
