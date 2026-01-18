@@ -1,10 +1,10 @@
 {
-  "timestamp": "2026-01-11T00:46:38Z",
-  "run_id": "20886860829",
-  "serial": "20251229",
-  "epoch": 1766966400,
+  "timestamp": "2026-01-18T00:46:21Z",
+  "run_id": "21103352886",
+  "serial": "20260112",
+  "epoch": 1768176000,
   "environment": {
-    "timestamp": "2026-01-11T00:46:37Z",
+    "timestamp": "2026-01-18T00:46:21Z",
     "os": {
       "name": "Ubuntu",
       "version": "24.04.3 LTS (Noble Numbat)",
@@ -15,16 +15,16 @@
     "qemu": "not installed",
     "git": {
       "version": "git version 2.52.0",
-      "sha": "e272b2975bbacad681592c29f06d04e1c89cec89",
+      "sha": "f6c3fbe3496b2ceb72a1cbbb58dcea4ef3aeb3ff",
       "branch": "main"
     },
     "github_actions": {
       "runner_os": "Linux",
-      "runner_name": "GitHub Actions 1000004381",
+      "runner_name": "GitHub Actions 1000004592",
       "runner_arch": "X64",
       "workflow": "Reproducible Debian Build",
-      "run_id": "20886860829",
-      "run_number": "49"
+      "run_id": "21103352886",
+      "run_number": "50"
     }
   },
   "architectures": {
@@ -33,15 +33,15 @@
       "suites": {
         "bookworm": {
           "reproducible": true,
-          "sha256": "6a54d94b371a7e12eb710210b87b63c19fde7c4300dfa9a580750b43d18480bc",
-          "official_sha256": "6a54d94b371a7e12eb710210b87b63c19fde7c4300dfa9a580750b43d18480bc",
-          "build_time_seconds": 137
+          "sha256": "95a7035f5ba0dd534b473eb02f3bb98af886e6b0ad74b19c52210d8390dae446",
+          "official_sha256": "95a7035f5ba0dd534b473eb02f3bb98af886e6b0ad74b19c52210d8390dae446",
+          "build_time_seconds": 131
         },
         "trixie": {
           "reproducible": true,
-          "sha256": "6280203b4472adb6337450fd25674683fccb5421acba9856205db95b7ca37212",
-          "official_sha256": "6280203b4472adb6337450fd25674683fccb5421acba9856205db95b7ca37212",
-          "build_time_seconds": 141
+          "sha256": "63c63c7babd30f3bf0ff10a5f758068ffdf0263044029fbf919e7d70c366bb98",
+          "official_sha256": "63c63c7babd30f3bf0ff10a5f758068ffdf0263044029fbf919e7d70c366bb98",
+          "build_time_seconds": 114
         }
       }
     },
@@ -50,15 +50,15 @@
       "suites": {
         "bookworm": {
           "reproducible": true,
-          "sha256": "504fb5a243d10a043d24ef0f35679ccfcc786d98bb3f7de9aa30a9d22d55a2fc",
-          "official_sha256": "504fb5a243d10a043d24ef0f35679ccfcc786d98bb3f7de9aa30a9d22d55a2fc",
-          "build_time_seconds": 110
+          "sha256": "9584d3f7d27d74894665830d6822a1757992c35a8c2811330bc9d5c33eaf9265",
+          "official_sha256": "9584d3f7d27d74894665830d6822a1757992c35a8c2811330bc9d5c33eaf9265",
+          "build_time_seconds": 123
         },
         "trixie": {
           "reproducible": true,
-          "sha256": "a4d68e63e6da42f841ddebc90f41ac0ed1577e83bfd3e9be4b636f4ef81a4d47",
-          "official_sha256": "a4d68e63e6da42f841ddebc90f41ac0ed1577e83bfd3e9be4b636f4ef81a4d47",
-          "build_time_seconds": 89
+          "sha256": "5262628f507f59314bcb855733d238a48d76eea9500826b95da5b8d96f3771cd",
+          "official_sha256": "5262628f507f59314bcb855733d238a48d76eea9500826b95da5b8d96f3771cd",
+          "build_time_seconds": 105
         }
       }
     }
