@@ -12107,5 +12107,114 @@
       "match_rate": 1,
       "generation_duration_seconds": 0
     }
+  },
+  {
+    "timestamp": "2026-02-03T03:07:52Z",
+    "verification_timestamp": "2026-02-03T03:07:42Z",
+    "serial": "20260202",
+    "status": "pass",
+    "architectures": [
+      "arm64"
+    ],
+    "results": [
+      {
+        "suite": "bookworm",
+        "architecture": "arm64",
+        "status": "match",
+        "dockerhub_diffid": "sha256:a45548784d51efd827d923af65d8ad1db57a2d93345b3b8581f47dc6c6d9244e",
+        "artifacts_diffid": "sha256:a45548784d51efd827d923af65d8ad1db57a2d93345b3b8581f47dc6c6d9244e",
+        "image": "arm64v8/debian:bookworm",
+        "platform": "linux/arm64/v8"
+      },
+      {
+        "suite": "bullseye",
+        "architecture": "arm64",
+        "status": "match",
+        "dockerhub_diffid": "sha256:59392c4ed90114461bbf2d3be885a87fad4456113803428c8bf5cdbeb87c4a93",
+        "artifacts_diffid": "sha256:59392c4ed90114461bbf2d3be885a87fad4456113803428c8bf5cdbeb87c4a93",
+        "image": "arm64v8/debian:bullseye",
+        "platform": "linux/arm64/v8"
+      },
+      {
+        "suite": "forky",
+        "architecture": "arm64",
+        "status": "match",
+        "dockerhub_diffid": "sha256:2b158c9e1f171da10bc38e6da1e795fe6d99217accb2f4f4e540a47e5bb96491",
+        "artifacts_diffid": "sha256:2b158c9e1f171da10bc38e6da1e795fe6d99217accb2f4f4e540a47e5bb96491",
+        "image": "arm64v8/debian:forky",
+        "platform": "linux/arm64/v8"
+      },
+      {
+        "suite": "oldoldstable",
+        "architecture": "arm64",
+        "status": "match",
+        "dockerhub_diffid": "sha256:39948ff387f67b81f569cfb289e108543462c730bde51abe3078b30ccdfcbd26",
+        "artifacts_diffid": "sha256:39948ff387f67b81f569cfb289e108543462c730bde51abe3078b30ccdfcbd26",
+        "image": "arm64v8/debian:oldoldstable",
+        "platform": "linux/arm64/v8"
+      },
+      {
+        "suite": "oldstable",
+        "architecture": "arm64",
+        "status": "match",
+        "dockerhub_diffid": "sha256:e511d3c38df88b1fbf87c34855b34aea3b43659bb559d791bd52179cb98cbcfb",
+        "artifacts_diffid": "sha256:e511d3c38df88b1fbf87c34855b34aea3b43659bb559d791bd52179cb98cbcfb",
+        "image": "arm64v8/debian:oldstable",
+        "platform": "linux/arm64/v8"
+      },
+      {
+        "suite": "sid",
+        "architecture": "arm64",
+        "status": "match",
+        "dockerhub_diffid": "sha256:9a6f7ad459216652b4c87b98e29ffa50b58aa7354d54159b200c60771586e1f1",
+        "artifacts_diffid": "sha256:9a6f7ad459216652b4c87b98e29ffa50b58aa7354d54159b200c60771586e1f1",
+        "image": "arm64v8/debian:sid",
+        "platform": "linux/arm64/v8"
+      },
+      {
+        "suite": "stable",
+        "architecture": "arm64",
+        "status": "match",
+        "dockerhub_diffid": "sha256:fe53322fef6e28094270ece8af8dae991388063640c18f23411e42c129bb714a",
+        "artifacts_diffid": "sha256:fe53322fef6e28094270ece8af8dae991388063640c18f23411e42c129bb714a",
+        "image": "arm64v8/debian:stable",
+        "platform": "linux/arm64/v8"
+      },
+      {
+        "suite": "testing",
+        "architecture": "arm64",
+        "status": "match",
+        "dockerhub_diffid": "sha256:dc1e77aa2c1026e1fb9d89b03d55d42af335ecfd3dc8ec02f8eee0d0293f3fd6",
+        "artifacts_diffid": "sha256:dc1e77aa2c1026e1fb9d89b03d55d42af335ecfd3dc8ec02f8eee0d0293f3fd6",
+        "image": "arm64v8/debian:testing",
+        "platform": "linux/arm64/v8"
+      },
+      {
+        "suite": "trixie",
+        "architecture": "arm64",
+        "status": "match",
+        "dockerhub_diffid": "sha256:e113f5633fdbf165c7de584aeb38f37f09b256f31ed803e83d4f58aa655d2b26",
+        "artifacts_diffid": "sha256:e113f5633fdbf165c7de584aeb38f37f09b256f31ed803e83d4f58aa655d2b26",
+        "image": "arm64v8/debian:trixie",
+        "platform": "linux/arm64/v8"
+      },
+      {
+        "suite": "unstable",
+        "architecture": "arm64",
+        "status": "match",
+        "dockerhub_diffid": "sha256:6df985e8dcd1207a079f761aaec34ab84ffcde070532537efaa5b9170747195c",
+        "artifacts_diffid": "sha256:6df985e8dcd1207a079f761aaec34ab84ffcde070532537efaa5b9170747195c",
+        "image": "arm64v8/debian:unstable",
+        "platform": "linux/arm64/v8"
+      }
+    ],
+    "summary": {
+      "total": 10,
+      "matched": 10,
+      "mismatched": 0,
+      "errors": 0,
+      "match_rate": 1,
+      "generation_duration_seconds": 0
+    }
   }
 ]
