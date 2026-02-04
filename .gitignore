@@ -1,3 +1,8 @@
+# Beads (override global ignore)
+!.beads/
+.beads/*
+!.beads/issues.jsonl
+
 # Build artifacts
 output/
 results/
