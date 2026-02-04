@@ -22,3 +22,6 @@ debuerreotype/
 
 # Test outputs
 test-results.tap
+
+# Worktrees
+.worktrees/
