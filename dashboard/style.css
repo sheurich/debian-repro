@@ -14,6 +14,10 @@
   box-sizing: border-box;
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 :root {
   /* Typography */
   --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
@@ -53,6 +57,9 @@ body {
   max-width: 1400px;
   margin: 0 auto;
   padding: var(--space-lg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 /* ============================================================================
@@ -89,6 +96,15 @@ a:hover {
 a:focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* Better focus states for touch devices */
+@media (pointer: coarse) {
+  a:focus-visible {
+    outline-width: 3px;
+    outline-offset: 3px;
+  }
 }
 
 /* ============================================================================
@@ -178,6 +194,7 @@ footer {
   margin-bottom: var(--space-md);
   flex-wrap: wrap;
   gap: var(--space-md);
+  row-gap: var(--space-sm);
 }
 
 .data-exports {
@@ -205,12 +222,57 @@ footer {
   color: var(--color-text-muted);
 }
 
+/* Table wrapper for better scroll handling */
+#matrix-table,
+#details-content {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+}
+
+/* Add scroll shadow hints for horizontal scrolling on mobile */
+.status-matrix {
+  position: relative;
+}
+
+@media (max-width: 768px) {
+  /* Add a subtle gradient to indicate more content on right */
+  .status-matrix::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 30px;
+    background: linear-gradient(to left, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0));
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  .details-table {
+    position: relative;
+  }
+
+  .details-table::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 30px;
+    background: linear-gradient(to left, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0));
+    pointer-events: none;
+    z-index: 1;
+  }
+}
+
 /* Matrix Table */
 .matrix {
   width: 100%;
   border-collapse: collapse;
   font-family: var(--font-mono);
   font-size: var(--text-sm);
+  table-layout: auto;
 }
 
 .matrix th,
@@ -409,6 +471,7 @@ footer {
    Responsive Design
    ========================================================================= */
 
+/* Tablet and below */
 @media (max-width: 768px) {
   body {
     padding: var(--space-md);
@@ -432,8 +495,20 @@ footer {
     gap: var(--space-sm);
   }
 
+  /* Make tables scrollable horizontally with better visual feedback */
+  .status-matrix,
+  .details-table {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin-left: calc(-1 * var(--space-md));
+    margin-right: calc(-1 * var(--space-md));
+    padding-left: var(--space-md);
+    padding-right: var(--space-md);
+  }
+
   .matrix,
   .details-table table {
+    min-width: 600px; /* Ensure table doesn't collapse too much */
     font-size: var(--text-xs);
   }
 
@@ -448,38 +523,218 @@ footer {
     width: 30px;
     height: 12px;
   }
+
+  /* Improve data export buttons on mobile */
+  .data-exports {
+    width: 100%;
+  }
+
+  .export-link {
+    flex: 0 0 auto;
+  }
+
+  .export-note {
+    width: 100%;
+    margin-top: var(--space-xs);
+  }
 }
 
+/* Mobile portrait */
 @media (max-width: 480px) {
-  /* Stack matrix on very small screens */
-  .matrix {
-    display: block;
-    overflow-x: auto;
-  }
-
-  .matrix thead {
-    display: none;
-  }
-
-  .matrix tbody tr {
-    display: block;
-    margin-bottom: var(--space-md);
-    border: 1px solid var(--color-text-muted);
+  body {
     padding: var(--space-sm);
   }
 
-  .matrix tbody th,
-  .matrix tbody td {
-    display: block;
-    text-align: left;
-    padding: var(--space-xs) 0;
+  h1 {
+    font-size: var(--text-lg);
+    line-height: 1.3;
   }
 
-  .matrix tbody th::before,
-  .matrix tbody td::before {
-    content: attr(data-label) ": ";
-    font-weight: 600;
-    display: inline;
+  h2 {
+    font-size: var(--text-base);
+  }
+
+  .subtitle {
+    font-size: var(--text-base);
+  }
+
+  /* Optimize summary bar for very small screens */
+  .summary-bar {
+    padding: var(--space-sm) 0;
+    margin-bottom: var(--space-lg);
+  }
+
+  .stat {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .stat-label {
+    font-size: var(--text-xs);
+  }
+
+  /* Make tables full-width with horizontal scroll */
+  .status-matrix,
+  .details-table {
+    margin-left: calc(-1 * var(--space-sm));
+    margin-right: calc(-1 * var(--space-sm));
+    padding-left: var(--space-sm);
+    padding-right: var(--space-sm);
+  }
+
+  /* Reduce minimum table width for very small screens */
+  .matrix {
+    min-width: 500px;
+  }
+
+  .details-table table {
+    min-width: 550px;
+  }
+
+  /* Compact table cells further */
+  .matrix th,
+  .matrix td {
+    padding: var(--space-xs);
+    font-size: 0.6875rem; /* 11px */
+  }
+
+  .details-table th,
+  .details-table td {
+    padding: var(--space-xs);
+    font-size: var(--text-xs);
+  }
+
+  /* Hide less critical sparklines on very small screens */
+  .cell-time {
+    display: none;
+  }
+
+  /* Simplify cell content on mobile */
+  .cell-content {
+    gap: var(--space-xs);
+  }
+
+  /* Make links stack on very small screens */
+  .links {
+    flex-direction: column;
+    gap: var(--space-sm);
+  }
+
+  .links a {
+    display: block;
+  }
+
+  /* Reduce history sparkline size */
+  .history-sparklines {
+    gap: var(--space-md);
+  }
+
+  .sparkline-svg {
+    height: 20px;
+  }
+
+  /* Improve about section readability on mobile */
+  .about {
+    max-width: 100%;
+  }
+
+  /* Better footer spacing */
+  footer {
+    padding-top: var(--space-md);
+  }
+
+  footer p {
+    line-height: 1.6;
+  }
+}
+
+/* Extra small screens (320px) */
+@media (max-width: 360px) {
+  h1 {
+    font-size: var(--text-base);
+  }
+
+  .subtitle {
+    font-size: var(--text-sm);
+  }
+
+  /* Make export buttons stack vertically on very small screens */
+  .data-exports {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .export-link {
+    width: auto;
+    min-width: 60px;
+  }
+
+  /* Further reduce table dimensions */
+  .matrix {
+    min-width: 280px; /* Allow very narrow but still readable */
+  }
+
+  .details-table table {
+    min-width: 280px;
+  }
+
+  /* Stack footer links */
+  footer p {
+    font-size: var(--text-xs);
+  }
+}
+
+/* ============================================================================
+   Container Queries (Modern CSS - Progressive Enhancement)
+   ========================================================================= */
+
+@supports (container-type: inline-size) {
+  .status-matrix {
+    container-type: inline-size;
+    container-name: matrix;
+  }
+
+  /* When container is narrow, adjust table layout */
+  @container matrix (max-width: 600px) {
+    .matrix {
+      font-size: var(--text-xs);
+    }
+
+    .matrix th,
+    .matrix td {
+      padding: var(--space-xs);
+    }
+  }
+
+  @container matrix (max-width: 400px) {
+    .matrix {
+      font-size: 0.6875rem;
+    }
+  }
+}
+
+/* ============================================================================
+   Touch-Friendly Enhancements
+   ========================================================================= */
+
+/* Ensure all interactive elements have minimum touch target size (44x44px) */
+@media (pointer: coarse) {
+  a,
+  .export-link {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .export-link {
+    padding: var(--space-sm) var(--space-md);
+  }
+
+  /* Add more padding for touch on links */
+  .links a {
+    padding: var(--space-sm) 0;
   }
 }
 
