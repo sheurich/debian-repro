@@ -40,10 +40,10 @@ We detect supply chain attacks by proving official Debian Docker images rebuild 
 The `docker-debian-artifacts` repository is our single trust point.
 
 ```
-┌─────────────────┐     ┌──────────────────────┐     ┌────────────┐
-│ Debian Packages │ ──► │ docker-debian-       │ ──► │ Docker Hub │
-│ (snapshot.d.o)  │     │ artifacts (verified) │     │ (gap)      │
-└─────────────────┘     └──────────────────────┘     └────────────┘
+┌─────────────────┐     ┌──────────────────────┐     ┌─────────────────┐
+│ Debian Packages │ ──► │ docker-debian-       │ ──► │ Docker Hub      │
+│ (snapshot.d.o)  │     │ artifacts (verified) │     │ (verified daily)│
+└─────────────────┘     └──────────────────────┘     └─────────────────┘
         ▲                         ▲
         │                         │
         │    ┌───────────────┐    │
@@ -52,9 +52,11 @@ The `docker-debian-artifacts` repository is our single trust point.
              └───────────────┘
 ```
 
-**Gap**: We don't verify Docker Hub images match the artifacts repository. An attacker who compromises Docker Hub could serve different images.
+### Registry Verification
 
-**Planned**: Direct Docker Hub verification closes this gap.
+Docker Hub images are verified daily against the artifacts repository. The `registry-verification.yml` workflow compares uncompressed layer checksums (diff_id) to detect any discrepancy between official artifacts and Docker Hub distribution.
+
+See [Registry Verification](registry-verification.md) for implementation details.
 
 ## Build Platforms
 
@@ -77,6 +79,13 @@ The `docker-debian-artifacts` repository is our single trust point.
 - Automatic QEMU setup for cross-architecture
 - Parallel builds with CPU-based concurrency
 - Supports Docker Desktop, Colima, OrbStack
+
+### Registry Verification (Docker Hub)
+
+- Daily verification at 2 AM UTC
+- Compares diff_id from Docker Hub manifest against OCI artifacts
+- Supports amd64, arm64 (default), plus armhf, i386, ppc64el on manual trigger
+- Results published to dashboard
 
 ## Consensus Mechanism
 
