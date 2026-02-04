@@ -148,7 +148,7 @@ get_docker_environment() {
 # Default configuration
 ARCH="${ARCH:-$(detect_native_arch)}"
 SUITES="${SUITES:-bookworm trixie}"
-DEBUERREOTYPE_VERSION="0.16"
+DEBUERREOTYPE_VERSION="e044a8f"
 PARALLEL="${PARALLEL:-false}"
 CLEAN="${CLEAN:-false}"
 
@@ -361,7 +361,7 @@ setup_debuerreotype() {
   cd debuerreotype
   log_debug "$COMPONENT" "Checking out v${DEBUERREOTYPE_VERSION}..."
   git fetch --tags >/dev/null 2>&1 || true
-  git checkout "refs/tags/${DEBUERREOTYPE_VERSION}" >/dev/null 2>&1
+  git checkout "${DEBUERREOTYPE_VERSION}" >/dev/null 2>&1
   cd ..
 
   # Build Docker image if needed
