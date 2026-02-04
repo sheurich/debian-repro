@@ -167,7 +167,8 @@ jobs:
         id: matrix
         run: |
             # Parse architectures input
-            IFS=',' read -ra ARCHS <<< "${{ github.event.inputs.architectures || 'amd64,arm64' }}"
+            # For scheduled runs (no inputs), default to all architectures
+            IFS=',' read -ra ARCHS <<< "${{ github.event.inputs.architectures || 'amd64,arm64,armhf,i386,ppc64el' }}"
 
             # Create matrix JSON with proper architecture mappings
             MATRIX='{"include":['
@@ -454,6 +455,51 @@ jobs:
             echo "## ❌ Some builds failed reproducibility check" >> "$GITHUB_STEP_SUMMARY"
           fi
 
+  alert-on-failure:
+    name: Alert on Failure
+    needs: [fetch-official, build]
+    runs-on: ubuntu-24.04
+    if: failure()
+    permissions:
+      issues: write
+
+    steps:
+      - name: Create alert issue
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea  # v7.0.1
+        with:
+          script: |
+            const serial = '${{ needs.fetch-official.outputs.serial }}';
+            const runUrl = '${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}';
+            
+            // Check if there's already an open alert issue
+            const { data: existingIssues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: 'security-alert,reproducibility',
+              state: 'open'
+            });
+            
+            if (existingIssues.length > 0) {
+              // Add comment to existing issue
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existingIssues[0].number,
+                body: `## Additional failure detected\n\n- **Serial**: ${serial}\n- **Run**: ${runUrl}\n- **Time**: ${new Date().toISOString()}`
+              });
+              console.log(`Added comment to existing alert issue #${existingIssues[0].number}`);
+            } else {
+              // Create new alert issue
+              const { data: issue } = await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: `🚨 Reproducibility verification failed - Serial ${serial}`,
+                body: `## Security Alert: Non-Reproducible Build Detected\n\n**This may indicate a supply chain attack or build environment issue.**\n\n### Details\n\n- **Serial**: ${serial}\n- **Build Run**: ${runUrl}\n- **Detected**: ${new Date().toISOString()}\n\n### Investigation Steps\n\n1. Review the [build logs](${runUrl}) for which architectures/suites failed\n2. Check if official checksums changed unexpectedly\n3. Verify build environment consistency\n4. Compare with previous successful builds\n\n### Expected Actions\n\n- [ ] Investigate root cause\n- [ ] Determine if this is a false positive or genuine concern\n- [ ] If suspicious, notify security team\n- [ ] Document findings and close this issue`,
+                labels: ['security-alert', 'reproducibility', 'automated']
+              });
+              console.log(`Created alert issue #${issue.number}`);
+            }
+
   update-dashboard:
     name: Update Dashboard
     needs: [fetch-official, build]
@@ -478,8 +524,8 @@ jobs:
         run: |
           set -Eeuo pipefail
 
-          # Get list of architectures from inputs
-          IFS=',' read -ra ARCHS <<< "${{ github.event.inputs.architectures || 'amd64,arm64' }}"
+          # Get list of architectures from inputs (default all 5 for scheduled runs)
+          IFS=',' read -ra ARCHS <<< "${{ github.event.inputs.architectures || 'amd64,arm64,armhf,i386,ppc64el' }}"
 
           for arch in "${ARCHS[@]}"; do
             arch=$(echo "$arch" | xargs)  # trim whitespace

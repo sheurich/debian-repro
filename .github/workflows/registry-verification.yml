@@ -42,7 +42,8 @@ jobs:
         id: matrix
         run: |
           # Parse architectures input
-          IFS=',' read -ra ARCHS <<< "${{ github.event.inputs.architectures || 'amd64,arm64' }}"
+          # For scheduled runs, verify all 5 supported architectures
+          IFS=',' read -ra ARCHS <<< "${{ github.event.inputs.architectures || 'amd64,arm64,armhf,i386,ppc64el' }}"
 
           # Build matrix JSON
           MATRIX='{"include":['
@@ -125,7 +126,7 @@ jobs:
           ./scripts/verify-registry.sh \
             --arch "${{ matrix.arch }}" \
             --artifacts-dir "official-${{ matrix.arch }}" \
-            $SUITE_ARG \
+            ${SUITE_ARG:+"$SUITE_ARG"} \
             --output "results-${{ matrix.arch }}.json"
 
       - name: Upload results
@@ -270,3 +271,47 @@ jobs:
             echo ""
             echo "See [dashboard](https://sheurich.github.io/debian-repro/) for details."
           } >> "$GITHUB_STEP_SUMMARY"
+
+  alert-on-failure:
+    name: Alert on Registry Tampering
+    needs: [verify-registry]
+    runs-on: ubuntu-24.04
+    if: failure()
+    permissions:
+      issues: write
+
+    steps:
+      - name: Create alert issue
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea  # v7.0.1
+        with:
+          script: |
+            const runUrl = '${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}';
+            
+            // Check if there's already an open alert issue
+            const { data: existingIssues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: 'security-alert,registry',
+              state: 'open'
+            });
+            
+            if (existingIssues.length > 0) {
+              // Add comment to existing issue
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existingIssues[0].number,
+                body: `## Additional registry verification failure\n\n- **Run**: ${runUrl}\n- **Time**: ${new Date().toISOString()}`
+              });
+              console.log(`Added comment to existing alert issue #${existingIssues[0].number}`);
+            } else {
+              // Create new alert issue
+              const { data: issue } = await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: `🚨 Docker Hub registry verification failed`,
+                body: `## Security Alert: Registry Image Mismatch Detected\n\n**Docker Hub images do not match expected checksums from docker-debian-artifacts.**\n\nThis may indicate:\n- Registry tampering or MITM attack\n- Delayed image propagation\n- Artifacts repository update in progress\n\n### Details\n\n- **Verification Run**: ${runUrl}\n- **Detected**: ${new Date().toISOString()}\n\n### Investigation Steps\n\n1. Review the [verification logs](${runUrl}) for which images failed\n2. Check if docker-debian-artifacts was recently updated\n3. Verify using independent network path\n4. Compare diff_ids manually with \`crane\`\n\n### Expected Actions\n\n- [ ] Investigate root cause\n- [ ] Determine if this is propagation delay or genuine concern\n- [ ] If suspicious, notify security team\n- [ ] Document findings and close this issue`,
+                labels: ['security-alert', 'registry', 'automated']
+              });
+              console.log(`Created alert issue #${issue.number}`);
+            }

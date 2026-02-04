@@ -1,0 +1,150 @@
+# .github/workflows/trigger-gcp-build.yml
+# Triggers GCP Cloud Build after GitHub Actions build completes
+# This enables multi-platform consensus validation
+name: Trigger GCP Build
+
+on:
+  workflow_run:
+    workflows: ["Reproducible Debian Build"]
+    types:
+      - completed
+
+  workflow_dispatch:
+    inputs:
+      suites:
+        description: 'Debian suites to build (space-separated)'
+        required: false
+        default: 'bookworm trixie'
+        type: string
+
+env:
+  TZ: 'UTC'
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  trigger-gcp:
+    name: Trigger GCP Cloud Build
+    runs-on: ubuntu-24.04
+    # Only trigger on successful GitHub build, or manual dispatch
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955  # v4.3.0
+
+      - name: Authenticate to Google Cloud
+        id: auth
+        uses: google-github-actions/auth@ba79af03959ebeac9769e648f473a284504d9193  # v2.1.10
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@77e7a554d41e2ee56fc945c52dfd3f33d12def9a  # v2.1.4
+
+      - name: Fetch official parameters
+        id: params
+        run: |
+          # Clone official artifacts to get current serial
+          git clone --depth 1 --branch dist-amd64 \
+            https://github.com/debuerreotype/docker-debian-artifacts.git \
+            official-amd64
+
+          cd official-amd64
+          SERIAL=$(cat serial)
+          EPOCH=$(cat debuerreotype-epoch)
+
+          echo "serial=$SERIAL" >> "$GITHUB_OUTPUT"
+          echo "epoch=$EPOCH" >> "$GITHUB_OUTPUT"
+          echo "📦 Official serial: $SERIAL, epoch: $EPOCH"
+
+      - name: Trigger Cloud Build
+        id: build
+        run: |
+          set -Eeuo pipefail
+
+          SUITES="${{ github.event.inputs.suites || 'bookworm trixie' }}"
+          SERIAL="${{ steps.params.outputs.serial }}"
+          EPOCH="${{ steps.params.outputs.epoch }}"
+
+          echo "Triggering Cloud Build..."
+          echo "  Serial: $SERIAL"
+          echo "  Epoch: $EPOCH"
+          echo "  Suites: $SUITES"
+
+          # Submit build and capture build ID
+          BUILD_RESULT=$(gcloud builds submit \
+            --config=cloudbuild.yaml \
+            --substitutions="_SERIAL=$SERIAL,_EPOCH=$EPOCH,_SUITES=$SUITES" \
+            --format='value(id)' \
+            --async \
+            . 2>&1)
+
+          BUILD_ID=$(echo "$BUILD_RESULT" | grep -oE '[a-f0-9-]{36}' | head -1)
+
+          if [ -z "$BUILD_ID" ]; then
+            echo "❌ Failed to get build ID"
+            echo "$BUILD_RESULT"
+            exit 1
+          fi
+
+          echo "build_id=$BUILD_ID" >> "$GITHUB_OUTPUT"
+          echo "✅ Cloud Build triggered: $BUILD_ID"
+
+      - name: Wait for Cloud Build completion
+        run: |
+          set -Eeuo pipefail
+
+          BUILD_ID="${{ steps.build.outputs.build_id }}"
+
+          echo "Waiting for Cloud Build $BUILD_ID to complete..."
+
+          # Poll for completion (max 60 minutes)
+          MAX_WAIT=3600
+          POLL_INTERVAL=30
+          ELAPSED=0
+
+          while [ $ELAPSED -lt $MAX_WAIT ]; do
+            STATUS=$(gcloud builds describe "$BUILD_ID" --format='value(status)')
+
+            case "$STATUS" in
+              SUCCESS)
+                echo "✅ Cloud Build completed successfully"
+                exit 0
+                ;;
+              FAILURE|TIMEOUT|CANCELLED)
+                echo "❌ Cloud Build failed with status: $STATUS"
+                gcloud builds describe "$BUILD_ID" --format='value(statusDetail)'
+                exit 1
+                ;;
+              *)
+                echo "  Status: $STATUS (${ELAPSED}s elapsed)"
+                sleep $POLL_INTERVAL
+                ELAPSED=$((ELAPSED + POLL_INTERVAL))
+                ;;
+            esac
+          done
+
+          echo "❌ Timeout waiting for Cloud Build"
+          exit 1
+
+      - name: Report status
+        if: always()
+        run: |
+          BUILD_ID="${{ steps.build.outputs.build_id }}"
+          PROJECT_ID=$(gcloud config get-value project 2>/dev/null || echo "unknown")
+
+          {
+            echo "## GCP Cloud Build Trigger"
+            echo ""
+            echo "- **Build ID**: $BUILD_ID"
+            echo "- **Project**: $PROJECT_ID"
+            echo "- **Serial**: ${{ steps.params.outputs.serial }}"
+            echo ""
+            if [ -n "$BUILD_ID" ]; then
+              echo "[View in Cloud Console](https://console.cloud.google.com/cloud-build/builds/$BUILD_ID?project=$PROJECT_ID)"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
