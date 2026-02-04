@@ -56,7 +56,7 @@ Consensus detects single-platform compromise.
 
 | Component | Trust | Mitigation |
 |-----------|-------|------------|
-| **Debuerreotype v0.16** | Official Debian image builder | Pinned version, tag verification |
+| **Debuerreotype e044a8f** | Official Debian image builder | Pinned commit, verified checkout |
 
 ### Data Sources
 

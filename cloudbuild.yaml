@@ -12,7 +12,7 @@ substitutions:
   _ARCH: 'amd64'
   _DPKG_ARCH: 'amd64'
   # Exact version used by official builds
-  _DEBUERREOTYPE_VERSION: '0.16'
+  _DEBUERREOTYPE_VERSION: 'e044a8f'
   # Target suites to build
   _SUITES: 'bookworm trixie'
 
@@ -80,8 +80,11 @@ steps:
 
         cd /workspace
 
-        # Clone exact version of debuerreotype
-        git clone --depth 1 --branch "${_DEBUERREOTYPE_VERSION}" https://github.com/debuerreotype/debuerreotype.git
+        # Clone debuerreotype and checkout exact commit
+        git clone https://github.com/debuerreotype/debuerreotype.git
+        cd debuerreotype
+        git checkout "${_DEBUERREOTYPE_VERSION}"
+        cd ..
         cd debuerreotype
 
         # Verify version
