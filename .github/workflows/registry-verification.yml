@@ -9,7 +9,9 @@ on:
       architectures:
         description: 'Architectures to verify (comma-separated)'
         required: false
-        default: 'amd64,arm64'
+        # All 5 supported architectures verified by default
+        # s390x excluded - not available in artifacts repository
+        default: 'amd64,arm64,armhf,i386,ppc64el'
         type: string
       suites:
         description: 'Suites to verify (space-separated, empty for auto-discover)'
