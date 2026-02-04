@@ -4,12 +4,15 @@ Threat model, trust dependencies, and detection methods.
 
 ## What We Detect
 
+> ⚠️ **Limitation:** We cannot detect tampering at the artifacts repository
+> itself, which serves as our trust anchor.
+
 ### Supply Chain Attacks
 
 | Attack | Detected | How |
 |--------|----------|-----|
 | **Build process tampering** | Yes | Checksum mismatch reveals Debuerreotype modifications |
-| **Artifacts repository changes** | Yes | Unauthorized checksum changes detected |
+| **Artifacts repository changes** | No | Single trust point - not verified |
 | **CI platform compromise** | Yes | Consensus failure reveals malicious platform |
 | **Package substitution** | Yes | Version changes break reproducibility |
 | **Docker Hub tampering** | Yes | Registry verification compares diff_ids daily |
@@ -63,7 +66,31 @@ Consensus detects single-platform compromise.
 | Component | Trust | Mitigation |
 |-----------|-------|------------|
 | **snapshot.debian.org** | Time-locked package archive | APT secure signing, GPG verification |
-| **docker-debian-artifacts** | Official build parameters | Single trust point (see limitation above) |
+| **docker-debian-artifacts** | Official build parameters | Single trust point (see limitation below) |
+
+### Single Trust Point Limitation
+
+The `docker-debian-artifacts` repository is our source of truth for official
+build parameters. We do not validate its integrity beyond cloning from GitHub.
+
+**What this means:**
+
+- If an attacker modifies this repository's checksums to match backdoored
+  images, our verification would incorrectly report "reproducible"
+- Multi-platform consensus protects against CI platform compromise, but NOT
+  against upstream parameter tampering
+- Registry verification protects Docker Hub distribution, but relies on
+  artifacts repo as ground truth
+
+**Why we accept this:**
+
+- Someone must be trusted as ground truth for comparison
+- The repository is maintained by official Debian Docker image builders
+- GitHub provides audit logs and access controls
+- Community monitoring provides additional oversight
+
+**Future mitigation:** Issue debian-repro-p31 tracks adding validation
+(commit signing, historical comparison).
 
 ### Container Images
 
