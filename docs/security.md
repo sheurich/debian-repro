@@ -89,8 +89,22 @@ build parameters. We do not validate its integrity beyond cloning from GitHub.
 - GitHub provides audit logs and access controls
 - Community monitoring provides additional oversight
 
-**Future mitigation:** Issue debian-repro-p31 tracks adding validation
-(commit signing, historical comparison).
+**Mitigation implemented:** `validate-artifacts-repo.sh` performs the following
+checks before trusting artifacts repo parameters:
+
+1. **Serial format validation** - Ensures YYYYMMDD format with valid ranges
+2. **Epoch bounds checking** - Rejects future timestamps or pre-2015 dates
+3. **Consistency check** - Verifies serial date matches epoch timestamp
+4. **Snapshot verification** - Confirms snapshot.debian.org has the claimed serial
+
+These checks detect:
+- Fabricated serials (non-existent snapshots)
+- Timestamp manipulation (impossible dates)
+- Parameter corruption (mismatched serial/epoch)
+
+They do NOT detect:
+- Legitimate-looking but malicious parameter changes
+- Compromised snapshot.debian.org (defense in depth, not eliminated)
 
 ### Container Images
 
