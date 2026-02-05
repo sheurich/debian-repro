@@ -182,7 +182,8 @@ validate_snapshot_exists() {
 # Main function
 #######################################
 main() {
-  require_commands curl date
+  # Only require date upfront; curl is needed only for snapshot validation
+  require_commands date
 
   local serial=""
   local epoch=""
@@ -235,6 +236,7 @@ main() {
   fi
   
   if [[ $failed -eq 0 ]] && [[ "$skip_snapshot" != "true" ]]; then
+    require_commands curl
     validate_snapshot_exists "$serial" || failed=1
   fi
 
