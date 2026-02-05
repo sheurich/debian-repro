@@ -161,9 +161,9 @@ validate_snapshot_exists() {
   
   log_info "$COMPONENT" "Checking snapshot.debian.org for serial $serial"
   
-  # HEAD request to check existence
+  # HEAD request to check existence (follow redirects)
   local http_code
-  http_code=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 10 --max-time 30 "$snapshot_url")
+  http_code=$(curl -s -o /dev/null -w "%{http_code}" -L --connect-timeout 10 --max-time 30 "$snapshot_url")
   
   if [[ "$http_code" == "200" ]]; then
     log_info "$COMPONENT" "Snapshot exists: $snapshot_url"

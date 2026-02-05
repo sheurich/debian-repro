@@ -150,6 +150,14 @@ main() {
   local serial epoch snapshot_url timestamp
   serial=$(cat serial)
   epoch=$(cat debuerreotype-epoch)
+  
+  # Validate artifacts repo parameters before trusting them
+  log_info "$COMPONENT" "Validating artifacts repo integrity..."
+  if ! "${SCRIPT_DIR}/validate-artifacts-repo.sh" --serial "$serial" --epoch "$epoch"; then
+    log_error "$COMPONENT" "Artifacts repo validation FAILED - aborting"
+    exit 1
+  fi
+  
   # Security: Use HTTPS to prevent man-in-the-middle attacks on snapshot URLs
   snapshot_url="https://snapshot.debian.org/archive/debian/${serial}T000000Z"
   timestamp="@${epoch}"
