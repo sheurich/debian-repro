@@ -22,6 +22,7 @@ Required arguments:
 
 Optional arguments:
   --suites SUITES       Space-separated list of suites (default: fetch all)
+  --skip-validation     Skip artifacts repo validation (for offline use)
   --help               Display this help message
 
 Outputs:
@@ -74,6 +75,7 @@ main() {
   local arch=""
   local output_dir=""
   local suites=""
+  local skip_validation=false
 
   # Parse arguments
   while [[ $# -gt 0 ]]; do
@@ -89,6 +91,10 @@ main() {
       --suites)
         suites="$2"
         shift 2
+        ;;
+      --skip-validation)
+        skip_validation=true
+        shift
         ;;
       --help)
         usage
@@ -150,6 +156,18 @@ main() {
   local serial epoch snapshot_url timestamp
   serial=$(cat serial)
   epoch=$(cat debuerreotype-epoch)
+  
+  # Validate artifacts repo parameters before trusting them
+  if [[ "$skip_validation" == "true" ]]; then
+    log_warn "$COMPONENT" "Skipping artifacts repo validation (--skip-validation)"
+  else
+    log_info "$COMPONENT" "Validating artifacts repo integrity..."
+    if ! "${SCRIPT_DIR}/validate-artifacts-repo.sh" --serial "$serial" --epoch "$epoch"; then
+      log_error "$COMPONENT" "Artifacts repo validation FAILED - aborting"
+      exit 1
+    fi
+  fi
+  
   # Security: Use HTTPS to prevent man-in-the-middle attacks on snapshot URLs
   snapshot_url="https://snapshot.debian.org/archive/debian/${serial}T000000Z"
   timestamp="@${epoch}"
