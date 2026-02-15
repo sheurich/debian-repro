@@ -1,47 +1,47 @@
 {
-  "timestamp": "2026-02-08T01:19:04Z",
-  "run_id": "21789707510",
+  "timestamp": "2026-02-15T01:08:49Z",
+  "run_id": "22027034911",
   "serial": "20260202",
   "epoch": 1769990400,
   "environment": {
-    "timestamp": "2026-02-08T01:19:04Z",
+    "timestamp": "2026-02-15T01:08:48Z",
     "os": {
       "name": "Ubuntu",
       "version": "24.04.3 LTS (Noble Numbat)",
-      "kernel": "6.11.0-1018-azure",
+      "kernel": "6.14.0-1017-azure",
       "arch": "x86_64"
     },
-    "docker": "Docker version 28.0.4, build b8034c0",
+    "docker": "Docker version 29.1.5, build 0e6fee6",
     "qemu": "not installed",
     "git": {
       "version": "git version 2.52.0",
-      "sha": "1a80c2f90ad71325f85da03a226096b636552c56",
+      "sha": "ce3abb12c65c68a20c64775d7e297f6b5530cb2b",
       "branch": "main"
     },
     "github_actions": {
       "runner_os": "Linux",
-      "runner_name": "GitHub Actions 1000005319",
+      "runner_name": "GitHub Actions 1000005450",
       "runner_arch": "X64",
       "workflow": "Reproducible Debian Build",
-      "run_id": "21789707510",
-      "run_number": "54"
+      "run_id": "22027034911",
+      "run_number": "55"
     }
   },
   "architectures": {
-    "ppc64el": {
+    "amd64": {
       "status": "success",
       "suites": {
-        "bookworm": {
-          "reproducible": true,
-          "sha256": "0ab4a9889f7ccd93e9dd448567a3e94f814fffff67a3ebbfaf26396ee393b138",
-          "official_sha256": "0ab4a9889f7ccd93e9dd448567a3e94f814fffff67a3ebbfaf26396ee393b138",
-          "build_time_seconds": 607
-        },
         "trixie": {
           "reproducible": true,
-          "sha256": "9195fd0ff3d80e88d5bb43c82338977b9429defd5d2bdcce7b9e7929be430454",
-          "official_sha256": "9195fd0ff3d80e88d5bb43c82338977b9429defd5d2bdcce7b9e7929be430454",
-          "build_time_seconds": 567
+          "sha256": "f2945891e6d120cce0a5d9da4359a11f62d2c43d5fc681193df5b71df158bdee",
+          "official_sha256": "f2945891e6d120cce0a5d9da4359a11f62d2c43d5fc681193df5b71df158bdee",
+          "build_time_seconds": 94
+        },
+        "bookworm": {
+          "reproducible": true,
+          "sha256": "82594bbceab737504fefbf847fe3ac4ed870a72b284c694683b8fe81ce787b82",
+          "official_sha256": "82594bbceab737504fefbf847fe3ac4ed870a72b284c694683b8fe81ce787b82",
+          "build_time_seconds": 98
         }
       }
     },
@@ -52,13 +52,13 @@
           "reproducible": true,
           "sha256": "1d1a021f0891028896d1b35439b8d827c880929e46a9ea92efc1ff0b6955a063",
           "official_sha256": "1d1a021f0891028896d1b35439b8d827c880929e46a9ea92efc1ff0b6955a063",
-          "build_time_seconds": 201
+          "build_time_seconds": 145
         },
         "trixie": {
           "reproducible": true,
           "sha256": "88ae549dfb7adbb75a4a70de0e1f18b64de4e167df23d7b1402c04a46d084d8b",
           "official_sha256": "88ae549dfb7adbb75a4a70de0e1f18b64de4e167df23d7b1402c04a46d084d8b",
-          "build_time_seconds": 184
+          "build_time_seconds": 145
         }
       }
     },
@@ -69,47 +69,47 @@
           "reproducible": true,
           "sha256": "18cc7ec2023b5e789d28399495a436340a4ef001bb00d59b638a25b6e662be72",
           "official_sha256": "18cc7ec2023b5e789d28399495a436340a4ef001bb00d59b638a25b6e662be72",
-          "build_time_seconds": 125
+          "build_time_seconds": 118
         },
         "trixie": {
           "reproducible": true,
           "sha256": "80ec42067977b42be4fb37d5278744d5ff22d99f8e6a6383098561c4cf1942ec",
           "official_sha256": "80ec42067977b42be4fb37d5278744d5ff22d99f8e6a6383098561c4cf1942ec",
-          "build_time_seconds": 139
+          "build_time_seconds": 105
         }
       }
     },
-    "amd64": {
+    "ppc64el": {
       "status": "success",
       "suites": {
-        "bookworm": {
-          "reproducible": true,
-          "sha256": "82594bbceab737504fefbf847fe3ac4ed870a72b284c694683b8fe81ce787b82",
-          "official_sha256": "82594bbceab737504fefbf847fe3ac4ed870a72b284c694683b8fe81ce787b82",
-          "build_time_seconds": 110
-        },
         "trixie": {
           "reproducible": true,
-          "sha256": "f2945891e6d120cce0a5d9da4359a11f62d2c43d5fc681193df5b71df158bdee",
-          "official_sha256": "f2945891e6d120cce0a5d9da4359a11f62d2c43d5fc681193df5b71df158bdee",
-          "build_time_seconds": 93
+          "sha256": "9195fd0ff3d80e88d5bb43c82338977b9429defd5d2bdcce7b9e7929be430454",
+          "official_sha256": "9195fd0ff3d80e88d5bb43c82338977b9429defd5d2bdcce7b9e7929be430454",
+          "build_time_seconds": 562
+        },
+        "bookworm": {
+          "reproducible": true,
+          "sha256": "0ab4a9889f7ccd93e9dd448567a3e94f814fffff67a3ebbfaf26396ee393b138",
+          "official_sha256": "0ab4a9889f7ccd93e9dd448567a3e94f814fffff67a3ebbfaf26396ee393b138",
+          "build_time_seconds": 604
         }
       }
     },
     "armhf": {
       "status": "success",
       "suites": {
-        "bookworm": {
-          "reproducible": true,
-          "sha256": "c57063d1d84915cd57d8b29cef14351d37c55c450f281c773cd1145e09e1f39a",
-          "official_sha256": "c57063d1d84915cd57d8b29cef14351d37c55c450f281c773cd1145e09e1f39a",
-          "build_time_seconds": 130
-        },
         "trixie": {
           "reproducible": true,
           "sha256": "2d3610a75b910ea8bc6f22ce26bae8fd2805293b1f94c8181cd64e889b40db50",
           "official_sha256": "2d3610a75b910ea8bc6f22ce26bae8fd2805293b1f94c8181cd64e889b40db50",
           "build_time_seconds": 123
+        },
+        "bookworm": {
+          "reproducible": true,
+          "sha256": "c57063d1d84915cd57d8b29cef14351d37c55c450f281c773cd1145e09e1f39a",
+          "official_sha256": "c57063d1d84915cd57d8b29cef14351d37c55c450f281c773cd1145e09e1f39a",
+          "build_time_seconds": 127
         }
       }
     }
