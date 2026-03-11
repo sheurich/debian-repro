@@ -1,6 +1,6 @@
 {
-  "timestamp": "2026-03-10T03:04:55Z",
-  "verification_timestamp": "2026-03-10T03:04:46Z",
+  "timestamp": "2026-03-11T03:04:23Z",
+  "verification_timestamp": "2026-03-11T03:04:12Z",
   "serial": "20260223",
   "status": "pass",
   "architectures": [
@@ -450,6 +450,6 @@
     "mismatched": 0,
     "errors": 0,
     "match_rate": 1,
-    "generation_duration_seconds": 0
+    "generation_duration_seconds": 1
   }
 }
