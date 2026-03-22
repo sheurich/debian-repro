@@ -8,8 +8,8 @@
       "description": "Bit-for-bit verification results of official Debian Docker images using Debuerreotype",
       "url": "https://sheurich.github.io/debian-repro/",
       "license": "https://opensource.org/licenses/MIT",
-      "version": "20260223",
-      "dateModified": "2026-03-15T01:13:08Z",
+      "version": "20260316",
+      "dateModified": "2026-03-22T01:12:57Z",
       "creator": {
         "@type": "Person",
         "name": "Shiloh Heurich",
@@ -35,7 +35,7 @@
           "name": "JSON-LD Structured Data"
         }
       ],
-      "temporalCoverage": "2026-03-15T01:13:08Z",
+      "temporalCoverage": "2026-03-22T01:12:57Z",
       "spatialCoverage": {
         "@type": "Place",
         "name": "Global"
@@ -70,7 +70,7 @@
         {
           "@type": "PropertyValue",
           "name": "serial",
-          "value": "20260223",
+          "value": "20260316",
           "description": "Build serial number (YYYYMMDD format)"
         }
       ],
@@ -102,7 +102,7 @@
         "email": "sheurich@fastly.com"
       },
       "datePublished": "2025-01-01",
-      "dateModified": "2026-03-15T01:13:08Z",
+      "dateModified": "2026-03-22T01:12:57Z",
       "description": "Static dashboard for visualizing Debian Docker image reproducibility verification results",
       "keywords": [
         "dashboard",

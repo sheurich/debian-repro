@@ -2110,5 +2110,122 @@
         }
       }
     }
+  },
+  {
+    "timestamp": "2026-03-22T01:12:57Z",
+    "run_id": "23392380145",
+    "serial": "20260316",
+    "epoch": 1773619200,
+    "environment": {
+      "timestamp": "2026-03-22T01:12:56Z",
+      "os": {
+        "name": "Ubuntu",
+        "version": "24.04.3 LTS (Noble Numbat)",
+        "kernel": "6.14.0-1017-azure",
+        "arch": "x86_64"
+      },
+      "docker": "Docker version 28.0.4, build b8034c0",
+      "qemu": "not installed",
+      "git": {
+        "version": "git version 2.53.0",
+        "sha": "eede203489a9015ead3eed5cd98c95adbde3a0c7",
+        "branch": "main"
+      },
+      "github_actions": {
+        "runner_os": "Linux",
+        "runner_name": "GitHub Actions 1000006822",
+        "runner_arch": "X64",
+        "workflow": "Reproducible Debian Build",
+        "run_id": "23392380145",
+        "run_number": "60"
+      }
+    },
+    "architectures": {
+      "amd64": {
+        "status": "success",
+        "suites": {
+          "trixie": {
+            "reproducible": true,
+            "sha256": "215a2389842ffa6d87905d2f27b768f28f595225929f3d07b968a5ba9aa08f59",
+            "official_sha256": "215a2389842ffa6d87905d2f27b768f28f595225929f3d07b968a5ba9aa08f59",
+            "build_time_seconds": 138
+          },
+          "bookworm": {
+            "reproducible": true,
+            "sha256": "7b13e27c3d1e6f7697e5282ebc0b5da93c9309910259e3661479df3c1fc306c5",
+            "official_sha256": "7b13e27c3d1e6f7697e5282ebc0b5da93c9309910259e3661479df3c1fc306c5",
+            "build_time_seconds": 144
+          }
+        }
+      },
+      "i386": {
+        "status": "success",
+        "suites": {
+          "bookworm": {
+            "reproducible": true,
+            "sha256": "c3b4f12050503ec991cbcaf0e15ba8dee1b9df8de838740d1426c1bb55189482",
+            "official_sha256": "c3b4f12050503ec991cbcaf0e15ba8dee1b9df8de838740d1426c1bb55189482",
+            "build_time_seconds": 185
+          },
+          "trixie": {
+            "reproducible": true,
+            "sha256": "56a915da523312578d3537e1e6ba9e7b404d7b460c9ecbe6ad4b40173443f594",
+            "official_sha256": "56a915da523312578d3537e1e6ba9e7b404d7b460c9ecbe6ad4b40173443f594",
+            "build_time_seconds": 171
+          }
+        }
+      },
+      "arm64": {
+        "status": "success",
+        "suites": {
+          "bookworm": {
+            "reproducible": true,
+            "sha256": "c88917bde03bb3dae1c9a2b246634fa4a42d026b58a13f2bd46f69c8d5a1ec3c",
+            "official_sha256": "c88917bde03bb3dae1c9a2b246634fa4a42d026b58a13f2bd46f69c8d5a1ec3c",
+            "build_time_seconds": 135
+          },
+          "trixie": {
+            "reproducible": true,
+            "sha256": "2b4924c957375df24b3c0327f686c9d4a79d925c48e115d2612da75234ec0719",
+            "official_sha256": "2b4924c957375df24b3c0327f686c9d4a79d925c48e115d2612da75234ec0719",
+            "build_time_seconds": 135
+          }
+        }
+      },
+      "ppc64el": {
+        "status": "success",
+        "suites": {
+          "trixie": {
+            "reproducible": true,
+            "sha256": "a5126a42b7b0e51db529eb9d8f5aeeca8e0412b7ea4c7ed6aceb7187330c9611",
+            "official_sha256": "a5126a42b7b0e51db529eb9d8f5aeeca8e0412b7ea4c7ed6aceb7187330c9611",
+            "build_time_seconds": 560
+          },
+          "bookworm": {
+            "reproducible": true,
+            "sha256": "885ec904d84924c7e51350b70f8f3eb15ee950ca1ade88062f9d1dcb1fceb936",
+            "official_sha256": "885ec904d84924c7e51350b70f8f3eb15ee950ca1ade88062f9d1dcb1fceb936",
+            "build_time_seconds": 610
+          }
+        }
+      },
+      "armhf": {
+        "status": "success",
+        "suites": {
+          "trixie": {
+            "reproducible": true,
+            "sha256": "ee359c34239e48b6bde79c742ae8154554b4d9a81bff4f1d9b4e6d8286fc6c87",
+            "official_sha256": "ee359c34239e48b6bde79c742ae8154554b4d9a81bff4f1d9b4e6d8286fc6c87",
+            "build_time_seconds": 130
+          },
+          "bookworm": {
+            "reproducible": true,
+            "sha256": "d46e1d3a3fe8f6aafcff758df2fdabf9662600a5f904a8615c81199474801851",
+            "official_sha256": "d46e1d3a3fe8f6aafcff758df2fdabf9662600a5f904a8615c81199474801851",
+            "build_time_seconds": 145
+          }
+        }
+      }
+    }
   }
 ]
