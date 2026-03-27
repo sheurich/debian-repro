@@ -80,17 +80,19 @@ jobs:
           echo "  Suites: $SUITES"
 
           # Submit build and capture build ID
+          # Use `|| true` to prevent set -e from exiting before we can log the error
           BUILD_RESULT=$(gcloud builds submit \
             --config=cloudbuild.yaml \
             --substitutions="_SERIAL=$SERIAL,_EPOCH=$EPOCH,_SUITES=$SUITES" \
             --format='value(id)' \
             --async \
-            . 2>&1)
+            . 2>&1) || true
 
           BUILD_ID=$(echo "$BUILD_RESULT" | grep -oE '[a-f0-9-]{36}' | head -1)
 
           if [ -z "$BUILD_ID" ]; then
             echo "❌ Failed to get build ID"
+            echo "gcloud output:"
             echo "$BUILD_RESULT"
             exit 1
           fi
