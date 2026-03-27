@@ -125,8 +125,8 @@ jobs:
 
           # Determine which platforms we have
           PLATFORMS=""
-          [ -f consensus-results/github-*.json ] && PLATFORMS="github"
-          [ -f consensus-results/gcp-*.json ] && PLATFORMS="${PLATFORMS:+$PLATFORMS,}gcp"
+          compgen -G "consensus-results/github-*.json" >/dev/null && PLATFORMS="github"
+          compgen -G "consensus-results/gcp-*.json" >/dev/null && PLATFORMS="${PLATFORMS:+$PLATFORMS,}gcp"
 
           echo "platforms=$PLATFORMS" >> "$GITHUB_OUTPUT"
 
